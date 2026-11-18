@@ -1,0 +1,9 @@
+node_modules/
+.next/
+out/
+preview/dist/
+.env
+apiquran/storage/*
+!apiquran/storage/.gitkeep
+apiquran/uploads/*
+!apiquran/uploads/.gitkeep
