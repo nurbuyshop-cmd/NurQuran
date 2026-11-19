@@ -11,9 +11,10 @@ import Admins from "@/app/admins/page";
 import Backup from "@/app/backup/page";
 import Activity from "@/app/activity/page";
 import Images from "@/app/images/page";
+import Reciters from "@/app/reciters/page";
 
 const ROUTES = { "/": Dashboard, "/login/": Login, "/pages/": Pages, "/pages/edit/": Edit, "/surahs/": Surahs,
-  "/settings/": Settings, "/admins/": Admins, "/backup/": Backup, "/activity/": Activity, "/images/": Images };
+  "/settings/": Settings, "/admins/": Admins, "/backup/": Backup, "/activity/": Activity, "/images/": Images, "/reciters/": Reciters };
 function App() {
   const r = useRoute();
   const P = ROUTES[r.split("?")[0]] || Dashboard;

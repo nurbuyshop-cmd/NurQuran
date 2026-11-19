@@ -20,3 +20,23 @@ export const DEFAULT_RECITER = "sudais";
 export const reciter = (id) => RECITERS.find((r) => r.id === id) || RECITERS[0];
 const p3 = (n) => String(n).padStart(3, "0");
 export const ayahAudioUrl = (id, s, a) => `https://everyayah.com/data/${reciter(id).folder}/${p3(s)}${p3(a)}.mp3`;
+
+// The reciter list as the admin panel arranged it: { order: [ids], hidden: [ids], default: id }
+export function arrangeReciters(cfg) {
+  if (!cfg) return RECITERS;
+  const order = Array.isArray(cfg.order) ? cfg.order : [];
+  const hidden = new Set(Array.isArray(cfg.hidden) ? cfg.hidden : []);
+  const pos = (id) => { const i = order.indexOf(id); return i < 0 ? 1000 + RECITERS.findIndex((r) => r.id === id) : i; };
+  return RECITERS.filter((r) => !hidden.has(r.id)).sort((a, b) => pos(a.id) - pos(b.id));
+}
+// Which reciter plays: the visitor's own choice if they picked one (and it is still shown),
+// otherwise the admin panel's default, otherwise the first in the list.
+export function effectiveReciter(prefs, cfg) {
+  if (prefs && prefs.reciter === "admin") return "admin";
+  const list = arrangeReciters(cfg);
+  const ok = (id) => list.some((r) => r.id === id);
+  if (prefs && prefs.reciterChosen && ok(prefs.reciter)) return prefs.reciter;
+  if (cfg && ok(cfg.default)) return cfg.default;
+  if (prefs && ok(prefs.reciter) && !cfg) return prefs.reciter;
+  return (list[0] || RECITERS[0]).id;
+}

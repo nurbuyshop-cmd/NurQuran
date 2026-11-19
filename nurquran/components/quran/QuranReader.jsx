@@ -11,7 +11,8 @@ import {
 import { Ico, ACTION_LABEL, SHORT_LABEL, DEFAULT_ORDER, G } from "./QIcons";
 import SettingsScreen from "./SettingsScreen";
 import { usePrefs, sizeScale } from "@/lib/quran/prefs";
-import { RECITERS, reciter as reciterInfo, ayahAudioUrl } from "@/lib/quran/reciters";
+import { RECITERS, reciter as reciterInfo, ayahAudioUrl, effectiveReciter } from "@/lib/quran/reciters";
+import { useSiteConfig } from "@/lib/siteImages";
 import { usePrayerSettings } from "@/lib/prayerStore";
 import { getPrayerState, fmtTime } from "@/lib/prayerEngine";
 import DesktopNav from "@/components/DesktopNav";
@@ -96,9 +97,13 @@ export default function QuranReader() {
   const audioEl = useRef(null);
   const repeatLeft = useRef(1);
   const prefsRef = useRef(null);
+  const site = useSiteConfig();
+  const reciterRef = useRef(null);
   const idxRef = useRef(0);
   const resumed = useRef(false);
   prefsRef.current = prefs;
+  const reciterId = prefs ? effectiveReciter(prefs, site.reciters) : null;
+  reciterRef.current = reciterId;
 
   useEffect(() => {
     setColorOk(supportsColorFont());
@@ -211,7 +216,7 @@ export default function QuranReader() {
   /* ---------- audio (ayah by ayah) ---------- */
   // src for one ayah in the chosen reciter's voice ("admin" = recordings uploaded in the admin panel)
   const srcFor = (s, a) => {
-    const r = prefsRef.current?.reciter;
+    const r = reciterRef.current;
     if (r === "admin") return EXTRA[key(s, a)]?.audio || null;
     return ayahAudioUrl(r, s, a);
   };
@@ -254,7 +259,7 @@ export default function QuranReader() {
     followAyah(ay.s, ay.a);
     if (!src) { setAudio((x) => ({ ...x, playing: false })); showToast("No uploaded recording for this ayah. Choose a reciter in Settings."); return; }
     // a new surah (not Al-Fatiha or At-Tawbah) starts with the bismillah
-    if (withBism && ay.a === 1 && ay.s !== 1 && ay.s !== 9 && prefsRef.current.bismillah && prefsRef.current.reciter !== "admin") {
+    if (withBism && ay.a === 1 && ay.s !== 1 && ay.s !== 9 && prefsRef.current.bismillah && reciterRef.current !== "admin") {
       bismRef.current = true;
       playSrc(srcFor(1, 1), idx);
     } else {
@@ -270,7 +275,7 @@ export default function QuranReader() {
     }
     if ("mediaSession" in navigator) {
       try {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: `${surah(ay.s).en} ${ay.s}:${ay.a}`, artist: reciterInfo(prefsRef.current.reciter).name, album: "Nur Quran" });
+        navigator.mediaSession.metadata = new MediaMetadata({ title: `${surah(ay.s).en} ${ay.s}:${ay.a}`, artist: reciterInfo(reciterRef.current).name, album: "Nur Quran" });
       } catch (e) {}
     }
   };
@@ -315,10 +320,10 @@ export default function QuranReader() {
   const lastReciter = useRef(null);
   useEffect(() => {
     if (!prefs) return;
-    if (lastReciter.current && lastReciter.current !== prefs.reciter && audio.on) playIdx(audio.idx, false);
-    lastReciter.current = prefs.reciter;
+    if (lastReciter.current && lastReciter.current !== reciterId && audio.on) playIdx(audio.idx, false);
+    lastReciter.current = reciterId;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefs?.reciter]);
+  }, [reciterId]);
   const firstAyahInView = () => {
     const el = document.querySelector(`section[data-page="${view.page}"] [data-k]`);
     if (el) { const [s, a] = el.dataset.k.split(":").map(Number); return { s, a }; }
@@ -488,7 +493,7 @@ export default function QuranReader() {
       {auto.on && prefs.showProgress && <div className="qr-progress">Progress: {hms(auto.secs)}</div>}
 
       {audio.on && (
-        <AudioBar reciter={prefs.reciter === "admin" ? "Uploaded recordings" : reciterInfo(prefs.reciter).name} onSettings={() => setScreen("settings")}
+        <AudioBar reciter={reciterId === "admin" ? "Uploaded recordings" : reciterInfo(reciterId).name} onSettings={() => setScreen("settings")}
           now={AYAHS[audio.idx]} prefs={prefs} save={save} audio={audio} onToggle={togglePlay} onClose={stopAudio}
           onStar={() => { const ay = AYAHS[audio.idx]; ay && addBookmark(ay.s, ay.a); }}
           onTr={() => run("translations")} audioEl={audioEl} repeatLeft={repeatLeft} />
