@@ -3,10 +3,10 @@ Options -Indexes
 DirectoryIndex index.html
 ErrorDocument 404 /404.html
 
-# Always use https
-RewriteEngine On
-RewriteCond %{HTTPS} off
-RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# Force https: turn on ONLY after the subdomain has an SSL certificate (remove the # from the 4 lines below)
+# RewriteEngine On
+# RewriteCond %{HTTPS} off
+# RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Cache build files for a long time (their names change on every build); always re-check HTML
 <IfModule mod_headers.c>

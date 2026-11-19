@@ -2,8 +2,9 @@
 // API client for apiquran. In the live preview (window.__MOCK_API__) it uses an in-browser demo store instead.
 import { mockRequest } from "./mock";
 
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://apiquran.toptol.site").replace(/\/$/, "");
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://nurquran.toptol.site").replace(/\/$/, "");
+// "//host" means: same http/https as the admin page itself
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "//apiquran.toptol.site").replace(/\/$/, "");
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "//nurquran.toptol.site").replace(/\/$/, "");
 const TOKEN = "qa_token";
 
 export const getToken = () => { try { return localStorage.getItem(TOKEN); } catch (e) { return null; } };

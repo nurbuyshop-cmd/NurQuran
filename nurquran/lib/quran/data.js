@@ -4,7 +4,8 @@
 import { useEffect, useState } from "react";
 import BUNDLED from "./content.json";
 
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://apiquran.toptol.site").replace(/\/$/, "");
+// "//host" means: same http/https as the website itself
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "//apiquran.toptol.site").replace(/\/$/, "");
 const CACHE = "nq_content";
 
 function readCache() {

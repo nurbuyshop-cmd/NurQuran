@@ -24,7 +24,7 @@ const { SURAHS, JUZ_NAMES, TOTAL_PAGES, TOTAL_AYAHS } = require("./src/meta");
 
 const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || store.read("secret", () => ({ key: crypto.randomBytes(32).toString("hex") })).key;
-const ORIGINS = (process.env.ALLOWED_ORIGINS || "https://nurquran.toptol.site,https://quranadmin.toptol.site,http://localhost:3000,http://localhost:3001")
+const ORIGINS = (process.env.ALLOWED_ORIGINS || "http://nurquran.toptol.site,https://nurquran.toptol.site,http://quranadmin.toptol.site,https://quranadmin.toptol.site,http://localhost:3000,http://localhost:3001")
   .split(",").map((s) => s.trim()).filter(Boolean);
 const UPLOAD_DIR = path.join(__dirname, "uploads");
 fs.mkdirSync(path.join(UPLOAD_DIR, "audio"), { recursive: true });
