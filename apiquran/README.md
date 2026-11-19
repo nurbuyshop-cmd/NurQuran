@@ -6,7 +6,7 @@ Run locally: `npm install` then `node app.js` (port 4000). Settings: copy `.env.
 First start creates the owner admin from `ADMIN_EMAIL` / `ADMIN_PASSWORD` and seeds Surah Al-Fatiha.
 
 ## Endpoints
-Public: `GET /v1/images`, `GET /v1/health`, `GET /v1/meta`, `GET /v1/quran`, `GET /v1/quran/version`, `GET /v1/quran/pages/:n`
+Public: `GET /v1/site` (pictures + reciter order), `GET /v1/images`, `GET /v1/health`, `GET /v1/meta`, `GET /v1/quran`, `GET /v1/quran/version`, `GET /v1/quran/pages/:n`
 Auth: `POST /v1/auth/login`, `GET /v1/auth/me`, `POST /v1/auth/password`
 Admin (Bearer token): `GET /v1/admin/stats`, `GET|POST /v1/admin/pages`, `GET|PUT|DELETE /v1/admin/pages/:n`,
 `POST /v1/admin/upload` (audio), `POST|DELETE /v1/admin/images?slot=` (pictures), `GET|PUT /v1/admin/settings`, `GET|POST /v1/admin/admins`, `DELETE /v1/admin/admins/:id`,

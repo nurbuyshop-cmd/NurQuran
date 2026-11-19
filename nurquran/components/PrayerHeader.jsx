@@ -54,11 +54,16 @@ export default function PrayerHeader() {
   }, [settings]);
 
   const s = state;
+  // the header sky follows the sun at the chosen city
+  const phase = !s ? "night"
+    : s.now.h < s.times.Sunrise || s.now.h >= s.times.Maghrib ? "night"
+    : s.now.h < s.times.Sunrise + 1 ? "morning"
+    : s.now.h >= s.times.Maghrib - 1 ? "evening" : "day";
 
   return (
     <>
-      <header className="hero">
-        <HeroScene />
+      <header className={`hero ${phase}`}>
+        <HeroScene phase={phase} />
         <div className="hero-inner">
           <div className="topbar">
             <Link href="/" className="brand">

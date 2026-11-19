@@ -2,9 +2,9 @@
 // Quran settings — mobile layout follows the reference app screenshot (Quran Font, toggles, Size Adjust, Themes).
 import { useEffect, useRef, useState } from "react";
 import { FONTS, loadPage, loadPageFont, addStaticFonts } from "@/lib/quran/mushaf";
-import { RECITERS, ayahAudioUrl } from "@/lib/quran/reciters";
+import { RECITERS, ayahAudioUrl, arrangeReciters, effectiveReciter } from "@/lib/quran/reciters";
 import { G } from "./QIcons";
-import { useSiteImages } from "@/lib/siteImages";
+import { useSiteImages, useSiteConfig } from "@/lib/siteImages";
 import "./settings.css";
 
 const THEMES = [
@@ -103,29 +103,33 @@ function Avatar({ r, i, photos, uploaded }) {
 }
 
 function ReciterCard({ prefs, save, hasAdminAudio }) {
-  const imgs = useSiteImages();
+  const cfg = useSiteConfig();
+  const imgs = cfg.images;
+  const current = effectiveReciter(prefs, cfg.reciters);
+  const pick = (id) => save({ reciter: id, reciterChosen: true });
   const [playing, setPlaying] = useState(null);
   const [all, setAll] = useState(false);
   const rowRef = useRef(null);
   useEffect(() => () => { try { sampleAudio && sampleAudio.pause(); } catch (e) {} }, []);
-  const list = hasAdminAudio ? [...RECITERS, { id: "admin", name: "Uploaded recordings", place: "Admin panel" }] : RECITERS;
+  const arranged = arrangeReciters(cfg.reciters);
+  const list = hasAdminAudio ? [...arranged, { id: "admin", name: "Uploaded recordings", place: "Admin panel" }] : arranged;
   // keep the chosen reciter in view in the sliding row
   useEffect(() => {
     const row = rowRef.current;
     const el = row && row.querySelector(".qset-ri.on");
     if (row && el && !all) row.scrollTo({ left: el.offsetLeft - (row.clientWidth - el.offsetWidth) / 2, behavior: "smooth" });
-  }, [prefs.reciter, all]);
+  }, [current, all]);
   return (
     <section className="qset-card rec">
       <h3><span>Reciter</span></h3>
       <div ref={rowRef} className={`qset-recrow${all ? " all" : ""}`}>
         {list.map((r, i) => {
-          const on = prefs.reciter === r.id;
+          const on = current === r.id;
           return (
             <div key={r.id} role="button" tabIndex={0} className={`qset-ri${on ? " on" : ""}`} title={`${r.name} — ${r.place}`}
-              onClick={() => save({ reciter: r.id })} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && save({ reciter: r.id })}>
+              onClick={() => pick(r.id)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && pick(r.id)}>
               <span className="circ">
-                <Avatar r={r} i={i} photos={prefs.reciterPhotos !== false} uploaded={imgs[`reciter:${r.id}`]} />
+                <Avatar r={r} i={Math.max(0, RECITERS.findIndex((x) => x.id === r.id))} photos={prefs.reciterPhotos !== false} uploaded={imgs[`reciter:${r.id}`]} />
                 {r.id !== "admin" && (
                   <button className="pl" aria-label={`Listen to ${r.name}`} onClick={(e) => { e.stopPropagation(); playSample(r.id, setPlaying); }}>
                     {playing === r.id

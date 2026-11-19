@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ContinueReading from "./ContinueReading";
 
 const POPULAR = [
   { n: 1, en: "Al-Fatiha", meaning: "The Opener", ayahs: 7, ar: "الفاتحة" },
@@ -27,14 +28,7 @@ export default function DesktopExtras() {
           <div className="tr">So, surely with hardship comes ease. Surely with that hardship comes more ease.</div>
           <div className="ref">Surah Ash-Sharh · 94:5–6</div>
         </div>
-        <div className="continue">
-          <div className="tag">Continue Reading</div>
-          <h3>Surah Al-Fatiha</h3>
-          <div className="sub">7 Ayahs · Juz 1</div>
-          <div className="bar"><i /></div>
-          <div className="pct">Start reading</div>
-          <Link href="/quran" className="btn">Open Quran →</Link>
-        </div>
+        <ContinueReading />
       </div>
 
       <h2 className="sec-title">

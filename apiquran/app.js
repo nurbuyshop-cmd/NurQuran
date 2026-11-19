@@ -223,6 +223,12 @@ app.post("/v1/admin/upload", auth, upload.single("file"), (req, res) => {
 
 /* ---------- images (reciter photos, home icons, theme pictures) ---------- */
 const SLOT = /^(reciter|feature|theme):[a-z0-9-]{1,40}$/;
+// everything the visitors' site needs from the admin panel in one small call
+app.get("/v1/site", (req, res) => {
+  const d = getImages();
+  res.set("Cache-Control", "no-cache");
+  ok(res, { updatedAt: d.updatedAt, images: d.items, reciters: getSettings().reciters || null });
+});
 app.get("/v1/images", (req, res) => {
   const d = getImages();
   res.set("Cache-Control", "no-cache");
@@ -277,8 +283,19 @@ app.put("/v1/admin/settings", auth, (req, res) => {
   const languages = Array.isArray(b.languages)
     ? b.languages.map((l) => ({ code: String(l.code || "").trim().toLowerCase().slice(0, 8), name: String(l.name || "").trim().slice(0, 40) })).filter((l) => /^[a-z-]{2,8}$/.test(l.code) && l.name)
     : cur.languages;
+  // reciter list order, hidden reciters and the default reciter for new visitors
+  const ID = /^[a-z0-9-]{1,40}$/;
+  let reciters = cur.reciters || null;
+  if (b.reciters && typeof b.reciters === "object") {
+    const order = Array.isArray(b.reciters.order) ? [...new Set(b.reciters.order.map(String).filter((x) => ID.test(x)))].slice(0, 100) : [];
+    const hidden = Array.isArray(b.reciters.hidden) ? [...new Set(b.reciters.hidden.map(String).filter((x) => ID.test(x)))].slice(0, 100) : [];
+    const def = ID.test(String(b.reciters.default || "")) ? String(b.reciters.default) : order[0] || null;
+    if (def && hidden.includes(def)) return fail(res, 400, "The default reciter cannot be hidden.");
+    reciters = { order, hidden, default: def };
+  }
   const settings = {
     ...cur,
+    reciters,
     siteName: String(b.siteName ?? cur.siteName).trim().slice(0, 60) || cur.siteName,
     reciter: String(b.reciter ?? cur.reciter).trim().slice(0, 60) || cur.reciter,
     languages,

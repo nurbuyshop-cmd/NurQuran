@@ -84,6 +84,7 @@ export async function mockRequest(path, method, body, form, token) {
       db.pages = db.pages.filter((x) => x !== p); db.updatedAt = nowIso; log(db, me.name, "deleted", describe(p)); save(db); return { ok: true };
     }
     case url === "/v1/images": return { ok: true, images: db.images || {} };
+    case url === "/v1/site": return { ok: true, images: db.images || {}, reciters: db.settings.reciters || null };
     case url === "/v1/admin/images" && method === "POST": {
       const f = form && form.get("file");
       if (!f) return err("Choose a picture.");

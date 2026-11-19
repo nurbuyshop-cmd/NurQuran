@@ -161,3 +161,23 @@
 .alarm-pop b{font-size:16px}
 .alarm-pop span{font-size:14px;opacity:.9}
 .alarm-pop button{background:#f3c74b;color:#0d1b3e;font-weight:700;border-radius:10px;padding:8px 14px;font-size:14px}
+
+/* home header by time of day (see HeroScene) */
+.hero.morning{background:#7fa9d9}
+.hero.day{background:#3f8fdc}
+.hero.evening{background:#8a5c8f}
+.hero.morning .hero-inner,.hero.day .hero-inner,.hero.evening .hero-inner{text-shadow:0 1px 3px rgba(0,0,0,.35)}
+.hero .scene{transition:opacity .6s}
+
+/* Continue Reading on phones (desktop shows it in the "Today" row) */
+.continue.m{margin-top:10px;background:var(--card);border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.12);padding:14px 14px 14px;display:flex;flex-direction:column}
+.continue.m .tag{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.continue.m h3{font-size:18px;margin-top:6px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.continue.m h3 .ar{font-size:20px;color:#0f5132;font-weight:400}
+.continue.m .sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+.continue.m .bar{height:7px;background:#eef0e6;border-radius:8px;margin:12px 0 6px;overflow:hidden}
+.continue.m .bar i{display:block;height:100%;background:var(--accent,#1f8a3b);border-radius:8px}
+.continue.m .pct{font-size:12px;color:var(--muted)}
+.continue.m .btn{margin-top:12px;align-self:stretch;text-align:center;background:var(--accent,#1f8a3b);color:#fff;padding:11px 16px;border-radius:10px;font-weight:500;font-size:15px}
+.continue h3 .ar{font-weight:400;color:#0f5132}
+@media (min-width:900px){ .continue.m{display:none} }
