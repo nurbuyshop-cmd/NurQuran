@@ -505,7 +505,8 @@ const PageView = memo(function PageView({ p, mode, bism, hl, hifz, revealed }) {
     if (!want) return;
     let stop = false;
     const kind = font === "mushaf" ? "v1" : font === "tajweed" ? "v4" : null;
-    const fontReady = kind ? loadPageFont(kind, p)
+    // if a page font cannot be loaded (offline), Mushaf Tajweed falls back to the Uthmanic font
+    const fontReady = kind ? loadPageFont(kind, p).catch(() => "")
       : document.fonts.load(`20px "${font === "indopak" ? "NQ IndoPak" : "NQ Uthmanic"}"`).then(() => null);
     Promise.all([loadPage(layout, p), fontReady]).then(([d, f]) => { if (!stop) { setFam(f); setData(d); } }).catch(() => {});
     return () => { stop = true; };
@@ -513,11 +514,16 @@ const PageView = memo(function PageView({ p, mode, bism, hl, hifz, revealed }) {
 
   const hlSet = hl ? hl.split(",") : [];
   const cls = (k) => `${hlSet.includes(k) ? " hl" : ""}${hifz && !revealed[k] ? " hide" : ""}`;
+  const noFont = fam === "" ; // page font failed to load
+  if (noFont && font === "tajweed") return <PageView p={p} mode={{ ...mode, font: "uthmanic" }} bism={bism} hl={hl} hifz={hifz} revealed={revealed} />;
   const glyph = font === "mushaf" || font === "tajweed";
   const wtext = (w) => (glyph ? w[2] : font === "indopak" ? w[4] : w[3]);
   const bismText = font === "indopak" ? bism.i : bism.q;
-  const style = fam ? { fontFamily: `"${fam}"` } : undefined;
+  const style = fam ? { fontFamily: `"${fam}"` } : { fontFamily: font === "indopak" ? '"NQ IndoPak"' : '"NQ Uthmanic"' };
 
+  if (data && noFont) {
+    return <section ref={ref} className="qr-page" data-page={p}><p className="qr-loading">The Mushaf font for page {p} could not be loaded. Check the connection, or choose another font in Settings.</p><div className="qr-pno">{p}</div></section>;
+  }
   if (!data) {
     return <section ref={ref} className={`qr-page ph${lines15 ? " m15" : ""}`} data-page={p}><div className="qr-pno">{p}</div></section>;
   }

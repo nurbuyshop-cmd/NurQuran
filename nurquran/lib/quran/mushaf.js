@@ -62,7 +62,11 @@ function getJSON(url) {
   return pr;
 }
 export const loadIndex = () => getJSON(`${BASE}/quran/index.json`);
-export const loadPage = (layout, p) => getJSON(`${BASE}/quran/${layout}/${String(p).padStart(3, "0")}.json`);
+// previews can ship one file per layout instead of 604 (window.__QURAN_BUNDLE__)
+export const loadPage = (layout, p) =>
+  typeof window !== "undefined" && window.__QURAN_BUNDLE__
+    ? getJSON(`${BASE}/quran/${layout}.all.json`).then((all) => all[p - 1])
+    : getJSON(`${BASE}/quran/${layout}/${String(p).padStart(3, "0")}.json`);
 export const loadSearch = () => getJSON(`${BASE}/quran/search.json`);
 
 // every ayah in order — used by the audio player and bookmarks
