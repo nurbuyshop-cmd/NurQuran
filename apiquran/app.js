@@ -227,7 +227,8 @@ const SLOT = /^(reciter|feature|theme|notif):[a-z0-9-]{1,40}$/;
 app.get("/v1/site", (req, res) => {
   const d = getImages();
   res.set("Cache-Control", "no-cache");
-  ok(res, { updatedAt: d.updatedAt, images: d.items, reciters: getSettings().reciters || null });
+  ok(res, { updatedAt: d.updatedAt, images: d.items, reciters: getSettings().reciters || null,
+    tajweed: publicTajweed(), tajweedAudio: getTajweedAudio().items });
 });
 app.get("/v1/images", (req, res) => {
   const d = getImages();
@@ -273,6 +274,149 @@ app.delete("/v1/admin/images", auth, (req, res) => {
   store.write("images", { updatedAt: new Date().toISOString(), items });
   log(req.admin, "removed picture", slot);
   ok(res, {});
+});
+
+/* ---------- Learn Tajweed: access (free / limited), premium plans, recordings, premium codes ---------- */
+const TAJ_DEFAULT = {
+  mode: "limited", freeCount: 6,
+  plans: [
+    { id: "weekly", name: "Weekly", price: "BDT 290", note: "" },
+    { id: "yearly", name: "Yearly", price: "BDT 4,200", note: "Best value" },
+    { id: "lifetime", name: "Lifetime", price: "BDT 7,000", note: "Pay once, access forever" },
+  ],
+  payInfo: "",
+};
+const getTajweed = () => ({ ...TAJ_DEFAULT, ...(getSettings().tajweed || {}) });
+const publicTajweed = () => { const t = getTajweed(); return { mode: t.mode, freeCount: t.freeCount, plans: t.plans, payInfo: t.payInfo }; };
+const getTajweedAudio = () => store.read("tajweedAudio", () => ({ items: {} }));
+const getCodes = () => store.read("premiumCodes", []);
+const PREMIUM_SECRET = () => JWT_SECRET + ":premium";
+
+const tajAudioUpload = multer({
+  storage: multer.diskStorage({
+    destination: path.join(UPLOAD_DIR, "audio"),
+    filename: (req, f, cb) => cb(null, `tajweed-${String(req.query.item || "x").replace(/[^0-9-]/g, "")}-${Date.now()}${(path.extname(f.originalname) || ".mp3").toLowerCase()}`),
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, f, cb) => cb(null, /\.(mp3|m4a|ogg|wav|aac|webm)$/i.test(f.originalname) && /^(audio|video)\//.test(f.mimetype)),
+});
+const removeAudioFile = (url) => {
+  const m = /\/uploads\/audio\/([A-Za-z0-9._-]+)$/.exec(url || "");
+  if (m) fs.unlink(path.join(UPLOAD_DIR, "audio", m[1]), () => {});
+};
+app.post("/v1/admin/tajweed/audio", auth, (req, res, next) => {
+  if (!/^\d{1,3}-\d{1,4}$/.test(String(req.query.item || ""))) return fail(res, 400, "Unknown lesson item.");
+  next();
+}, tajAudioUpload.single("file"), (req, res) => {
+  if (!req.file) return fail(res, 400, "Choose an audio file (mp3, m4a, ogg, wav, aac, webm — max 10 MB).");
+  const item = String(req.query.item);
+  const base = process.env.PUBLIC_URL || `${req.protocol}://${req.get("host")}`;
+  const d = getTajweedAudio();
+  removeAudioFile(d.items[item]);
+  const url = `${base}/uploads/audio/${req.file.filename}`;
+  store.write("tajweedAudio", { items: { ...d.items, [item]: url } });
+  log(req.admin, "uploaded tajweed audio", item);
+  ok(res, { item, url });
+});
+app.delete("/v1/admin/tajweed/audio", auth, (req, res) => {
+  const item = String(req.query.item || "");
+  const d = getTajweedAudio();
+  if (!d.items[item]) return fail(res, 404, "No recording for this item.");
+  removeAudioFile(d.items[item]);
+  const items = { ...d.items }; delete items[item];
+  store.write("tajweedAudio", { items });
+  log(req.admin, "removed tajweed audio", item);
+  ok(res, {});
+});
+app.get("/v1/admin/tajweed", auth, (req, res) => ok(res, { tajweed: getTajweed(), audio: getTajweedAudio().items }));
+app.put("/v1/admin/tajweed", auth, (req, res) => {
+  const b = req.body || {};
+  const cur = getTajweed();
+  const plans = Array.isArray(b.plans) ? b.plans.slice(0, 6).map((p, i) => ({
+    id: String(p.id || `plan${i + 1}`).replace(/[^a-z0-9-]/gi, "").slice(0, 20) || `plan${i + 1}`,
+    name: String(p.name || "").trim().slice(0, 30), price: String(p.price || "").trim().slice(0, 30), note: String(p.note || "").trim().slice(0, 60),
+  })).filter((p) => p.name) : cur.plans;
+  const t = {
+    mode: b.mode === "free" ? "free" : "limited",
+    freeCount: Math.max(0, Math.min(200, parseInt(b.freeCount ?? cur.freeCount, 10) || 0)),
+    plans,
+    payInfo: String(b.payInfo ?? cur.payInfo).slice(0, 2000),
+  };
+  store.write("settings", { ...getSettings(), tajweed: t });
+  log(req.admin, "updated Learn Tajweed access", t.mode === "free" ? "free for everyone" : `limited (${t.freeCount} free items per lesson)`);
+  ok(res, { tajweed: t });
+});
+
+// premium codes: the admin makes a code for a buyer; the buyer types it on the website (Premium page)
+const codeOut = (c) => ({ ...c, active: !c.expiresAt || new Date(c.expiresAt) > new Date() });
+app.get("/v1/admin/premium/codes", auth, (req, res) => ok(res, { codes: getCodes().map(codeOut) }));
+app.post("/v1/admin/premium/codes", auth, (req, res) => {
+  const b = req.body || {};
+  const count = Math.max(1, Math.min(50, parseInt(b.count, 10) || 1));
+  const days = b.days === "" || b.days == null ? 0 : Math.max(0, Math.min(36500, parseInt(b.days, 10) || 0)); // 0 = lifetime
+  const plan = String(b.plan || "").trim().slice(0, 30) || (days ? `${days} days` : "Lifetime");
+  const note = String(b.note || "").trim().slice(0, 100);
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const mk = () => "NQ-" + Array.from({ length: 8 }, (_, i) => (i === 4 ? "-" : "") + A[crypto.randomInt(A.length)]).join("");
+  const list = getCodes();
+  const made = [];
+  for (let i = 0; i < count; i++) {
+    let c; do { c = mk(); } while (list.some((x) => x.code === c));
+    const row = { code: c, plan, days, note, createdAt: new Date().toISOString(), by: req.admin.name, device: null, redeemedAt: null, expiresAt: null };
+    list.unshift(row); made.push(row);
+  }
+  store.write("premiumCodes", list.slice(0, 5000));
+  log(req.admin, "made premium codes", `${count} × ${plan}`);
+  ok(res, { codes: made.map(codeOut) });
+});
+app.delete("/v1/admin/premium/codes/:code", auth, (req, res) => {
+  const list = getCodes();
+  if (!list.some((x) => x.code === req.params.code)) return fail(res, 404, "Code not found.");
+  store.write("premiumCodes", list.filter((x) => x.code !== req.params.code));
+  log(req.admin, "deleted premium code", req.params.code);
+  ok(res, {});
+});
+app.post("/v1/admin/premium/codes/:code/reset", auth, (req, res) => {
+  const list = getCodes();
+  const c = list.find((x) => x.code === req.params.code);
+  if (!c) return fail(res, 404, "Code not found.");
+  c.device = null; // the buyer can use it on a new phone; the end date stays
+  store.write("premiumCodes", list);
+  log(req.admin, "reset premium code device", c.code);
+  ok(res, { code: codeOut(c) });
+});
+const redeemTries = new Map();
+app.post("/v1/premium/redeem", (req, res) => {
+  const ip = req.ip, now = Date.now();
+  const rec = (redeemTries.get(ip) || []).filter((t) => now - t < 10 * 60 * 1000);
+  if (rec.length >= 15) return fail(res, 429, "Too many tries. Please wait a few minutes.");
+  rec.push(now); redeemTries.set(ip, rec);
+  const code = String((req.body || {}).code || "").trim().toUpperCase().replace(/\s+/g, "");
+  const device = String((req.body || {}).device || "").slice(0, 64);
+  if (!device) return fail(res, 400, "Missing device id.");
+  const list = getCodes();
+  const c = list.find((x) => x.code === code);
+  if (!c) return fail(res, 404, "This code is not valid. Check it and try again.");
+  if (c.device && c.device !== device) return fail(res, 409, "This code is already used on another phone. Ask for help to move it.");
+  if (!c.redeemedAt) {
+    c.redeemedAt = new Date().toISOString();
+    c.expiresAt = c.days ? new Date(now + c.days * 86400000).toISOString() : null;
+  }
+  if (c.expiresAt && new Date(c.expiresAt) <= new Date()) return fail(res, 410, "This code has ended.");
+  c.device = device;
+  store.write("premiumCodes", list);
+  const token = jwt.sign({ code: c.code, device }, PREMIUM_SECRET(), c.expiresAt ? { expiresIn: Math.floor((new Date(c.expiresAt) - now) / 1000) } : {});
+  ok(res, { token, plan: c.plan, expiresAt: c.expiresAt });
+});
+app.get("/v1/premium/status", (req, res) => {
+  const h = req.headers.authorization || "";
+  try {
+    const p = jwt.verify(h.slice(7), PREMIUM_SECRET());
+    const c = getCodes().find((x) => x.code === p.code);
+    if (!c || c.device !== p.device) return fail(res, 401, "Premium is not active on this phone.");
+    if (c.expiresAt && new Date(c.expiresAt) <= new Date()) return fail(res, 410, "Premium has ended.");
+    ok(res, { plan: c.plan, expiresAt: c.expiresAt });
+  } catch (e) { fail(res, 401, "Premium is not active on this phone."); }
 });
 
 /* ---------- notifications (shown on the website's Notifications page) ---------- */

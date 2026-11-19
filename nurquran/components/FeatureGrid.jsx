@@ -10,7 +10,7 @@ import {
 const FEATURES = [
   { key: "read-quran", label: "Read Quran", href: "/quran", Icon: QuranIcon },
   { key: "tasbeeh", label: "Tasbeeh", href: "/tasbeeh", Icon: TasbeehIcon },
-  { key: "learn-tajweed", label: "Learn Tajweed", href: "#", Icon: TajweedIcon },
+  { key: "learn-tajweed", label: "Learn Tajweed", href: "/tajweed", Icon: TajweedIcon },
   { key: "qibla", label: "Qibla", href: "/qibla", Icon: QiblaIcon },
   { key: "e-card", label: "E-Card", href: "#", Icon: ECardIcon },
   { key: "prayer-times", label: "Prayers Times", href: "/prayer-times", Icon: PrayerTimesIcon },

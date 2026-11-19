@@ -10,6 +10,8 @@ const NAV = [
   ["/pages/", "Quran Pages", I.pages],
   ["/surahs/", "Surahs", I.surah],
   ["/reciters/", "Reciters", I.music],
+  ["/notifications/", "Notifications", I.bell],
+  ["/tajweed/", "Learn Tajweed", I.book],
   ["/images/", "Images", I.image],
   ["/settings/", "Settings", I.settings],
   ["/admins/", "Admins", I.users],
