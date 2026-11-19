@@ -28,6 +28,7 @@ const ORIGINS = (process.env.ALLOWED_ORIGINS || "http://nurquran.toptol.site,htt
   .split(",").map((s) => s.trim()).filter(Boolean);
 const UPLOAD_DIR = path.join(__dirname, "uploads");
 fs.mkdirSync(path.join(UPLOAD_DIR, "audio"), { recursive: true });
+fs.mkdirSync(path.join(UPLOAD_DIR, "images"), { recursive: true });
 
 /* ---------- data (seeded on first run) ---------- */
 const seed = () => JSON.parse(fs.readFileSync(path.join(__dirname, "src", "seed-content.json"), "utf8")).pages;
@@ -43,6 +44,8 @@ const getAdmins = () => store.read("admins", () => {
   return [{ id: "a1", name: "Admin", email, hash: bcrypt.hashSync(password, 10), role: "owner", createdAt: new Date().toISOString() }];
 });
 const getLog = () => store.read("log", []);
+// pictures uploaded from the admin panel: { slot: url }, e.g. "reciter:sudais", "feature:read-quran", "theme:night"
+const getImages = () => store.read("images", () => ({ updatedAt: new Date().toISOString(), items: {} }));
 function log(admin, action, detail) {
   const l = getLog();
   l.unshift({ at: new Date().toISOString(), by: admin ? admin.name : "system", action, detail });
@@ -218,6 +221,54 @@ app.post("/v1/admin/upload", auth, upload.single("file"), (req, res) => {
   ok(res, { url: `${base}/uploads/audio/${req.file.filename}` });
 });
 
+/* ---------- images (reciter photos, home icons, theme pictures) ---------- */
+const SLOT = /^(reciter|feature|theme):[a-z0-9-]{1,40}$/;
+app.get("/v1/images", (req, res) => {
+  const d = getImages();
+  res.set("Cache-Control", "no-cache");
+  ok(res, { updatedAt: d.updatedAt, images: d.items });
+});
+const imageUpload = multer({
+  storage: multer.diskStorage({
+    destination: path.join(UPLOAD_DIR, "images"),
+    filename: (req, f, cb) => {
+      const ext = (path.extname(f.originalname) || ".jpg").toLowerCase().replace(".jpeg", ".jpg");
+      cb(null, `${String(req.query.slot || "img").replace(/[^a-z0-9-]/gi, "-")}-${Date.now()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 3 * 1024 * 1024 },
+  fileFilter: (req, f, cb) => cb(null, /\.(png|jpe?g|webp|gif)$/i.test(f.originalname) && /^image\//.test(f.mimetype)),
+});
+const removeImageFile = (url) => {
+  const m = /\/uploads\/images\/([A-Za-z0-9._-]+)$/.exec(url || "");
+  if (m) fs.unlink(path.join(UPLOAD_DIR, "images", m[1]), () => {});
+};
+app.post("/v1/admin/images", auth, (req, res, next) => {
+  if (!SLOT.test(String(req.query.slot || ""))) return fail(res, 400, "Unknown picture slot.");
+  next();
+}, imageUpload.single("file"), (req, res) => {
+  if (!req.file) return fail(res, 400, "Choose a picture (png, jpg, webp or gif — max 3 MB).");
+  const slot = String(req.query.slot);
+  const base = process.env.PUBLIC_URL || `${req.protocol}://${req.get("host")}`;
+  const d = getImages();
+  removeImageFile(d.items[slot]);
+  const url = `${base}/uploads/images/${req.file.filename}`;
+  store.write("images", { updatedAt: new Date().toISOString(), items: { ...d.items, [slot]: url } });
+  log(req.admin, "uploaded picture", slot);
+  ok(res, { slot, url });
+});
+app.delete("/v1/admin/images", auth, (req, res) => {
+  const slot = String(req.query.slot || "");
+  const d = getImages();
+  if (!d.items[slot]) return fail(res, 404, "No picture for this slot.");
+  removeImageFile(d.items[slot]);
+  const items = { ...d.items };
+  delete items[slot];
+  store.write("images", { updatedAt: new Date().toISOString(), items });
+  log(req.admin, "removed picture", slot);
+  ok(res, {});
+});
+
 /* ---------- admin: settings ---------- */
 app.get("/v1/admin/settings", auth, (req, res) => ok(res, { settings: getSettings() }));
 app.put("/v1/admin/settings", auth, (req, res) => {
@@ -288,7 +339,7 @@ app.get("/v1/admin/log", auth, (req, res) => ok(res, { log: getLog() }));
 app.use((req, res) => fail(res, 404, "Not found."));
 app.use((err, req, res, next) => {
   console.error(err);
-  if (err && err.code === "LIMIT_FILE_SIZE") return fail(res, 400, "File is too large (max 25 MB).");
+  if (err && err.code === "LIMIT_FILE_SIZE") return fail(res, 400, req.path.includes("/images") ? "Picture is too large (max 3 MB)." : "File is too large (max 25 MB).");
   fail(res, 500, "Server error. Please try again.");
 });
 

@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "preview": "node scripts/build-preview.mjs",
-    "cities": "node scripts/build-cities.mjs"
+    "cities": "node scripts/build-cities.mjs",
+    "quran": "node scripts/quran-download.mjs && node scripts/quran-build.mjs",
+    "quran-fonts": "node scripts/quran-fonts.mjs"
   },
   "dependencies": {
     "next": "^16.4.6",

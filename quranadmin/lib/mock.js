@@ -83,6 +83,20 @@ export async function mockRequest(path, method, body, form, token) {
       const p = db.pages.find((x) => x.page === +m[1]); if (!p) return err("Page not found.", 404);
       db.pages = db.pages.filter((x) => x !== p); db.updatedAt = nowIso; log(db, me.name, "deleted", describe(p)); save(db); return { ok: true };
     }
+    case url === "/v1/images": return { ok: true, images: db.images || {} };
+    case url === "/v1/admin/images" && method === "POST": {
+      const f = form && form.get("file");
+      if (!f) return err("Choose a picture.");
+      const slot = new URLSearchParams(path.split("?")[1] || "").get("slot");
+      const dataUrl = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f); });
+      db.images = { ...(db.images || {}), [slot]: dataUrl }; log(db, me.name, "uploaded picture", slot); save(db);
+      return { ok: true, slot, url: dataUrl };
+    }
+    case url === "/v1/admin/images" && method === "DELETE": {
+      const slot = new URLSearchParams(path.split("?")[1] || "").get("slot");
+      const n = { ...(db.images || {}) }; delete n[slot]; db.images = n; log(db, me.name, "removed picture", slot); save(db);
+      return { ok: true };
+    }
     case url === "/v1/admin/upload": {
       const f = form && form.get("file");
       if (!f) return err("Choose an audio file.");

@@ -1,6 +1,7 @@
 import PrayerHeader from "@/components/PrayerHeader";
 import FeatureGrid from "@/components/FeatureGrid";
 import DesktopExtras from "@/components/DesktopExtras";
+import HomeQuranSettings from "@/components/HomeQuranSettings";
 
 export default function Home() {
   return (
@@ -9,6 +10,7 @@ export default function Home() {
       <main>
         <h2 className="sec-title desk-only">Explore</h2>
         <FeatureGrid />
+        <HomeQuranSettings />
         <DesktopExtras />
       </main>
     </>

@@ -8,7 +8,7 @@ const r = await build({
   entryPoints: ["preview/entry.jsx"],
   bundle: true, minify: true, write: false, format: "iife", jsx: "automatic",
   outdir: "preview/dist", external: ["/fonts/*"], loader: { ".js": "jsx" },
-  define: { "process.env.NODE_ENV": '"production"' },
+  define: { "process.env.NODE_ENV": '"production"', "process.env.NEXT_PUBLIC_QURAN_BASE": '""', "process.env.NEXT_PUBLIC_API_URL": '""' },
   alias: {
     "next/link": path.join(root, "preview/next-link.jsx"),
     "next/navigation": path.join(root, "preview/next-navigation.js"),
