@@ -33,3 +33,8 @@ Search: Exact / Affixes / All Roots over the Arabic text, or any translation in 
 Roots come from the Quranic Arabic Corpus morphology (GPL) in `public/quran/roots.json`. "Ask AI" ranks ayahs by the key
 words of a question (Arabic, English, Bengali); it runs in the browser and needs no AI service.
 Notifications are written in the admin panel (Notifications page).
+
+Learn Tajweed (`/tajweed`): 16 Qaida lessons in `public/tajweed/lessons.json`, made by `node scripts/tajweed-build.mjs`.
+Word lessons use real Quran words (KFGQPC Hafs text) with Quran.com word-by-word recitation; letter lessons play the
+recordings uploaded in the admin panel (Learn Tajweed → Recordings). Access is set in the admin panel: free for everyone,
+or limited (first N items of each lesson) with Premium codes unlocking everything (`/premium`).

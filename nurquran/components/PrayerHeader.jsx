@@ -31,7 +31,7 @@ const NAV = [
   ["Read Quran", "/quran"],
   ["Prayer Times", "/prayer-times"],
   ["Hifz", "#"],
-  ["Learn Tajweed", "#"],
+  ["Learn Tajweed", "/tajweed"],
   ["Duas", "#"],
 ];
 
@@ -88,7 +88,7 @@ export default function PrayerHeader() {
             </nav>
 
             <div className="tools">
-              <button className="premium">Premium</button>
+              <Link href="/premium" className="premium">Premium</Link>
               <Link href="/search" className="ico-btn" aria-label="Search">
                 <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
                   <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L21 21" />

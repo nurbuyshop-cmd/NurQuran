@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { API_URL } from "@/lib/quran/data";
 
 const CACHE = "nq_site";
-const EMPTY = { images: {}, reciters: null };
+const EMPTY = { images: {}, reciters: null, tajweed: null, tajweedAudio: {} };
 let mem = null;
 let inflight = null;
 const subs = new Set();
@@ -14,9 +14,9 @@ const subs = new Set();
 function readCache() {
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "null");
-    if (c && c.images) return { images: c.images, reciters: c.reciters || null };
+    if (c && c.images) return { ...EMPTY, ...c };
     const old = JSON.parse(localStorage.getItem("nq_images") || "null"); // earlier version
-    if (old && old.images) return { images: old.images, reciters: null };
+    if (old && old.images) return { ...EMPTY, images: old.images };
   } catch (e) {}
   return EMPTY;
 }
@@ -26,7 +26,7 @@ function refresh() {
     .then((r) => r.json())
     .then((d) => {
       if (!d || !d.ok) return;
-      mem = { images: d.images || {}, reciters: d.reciters || null };
+      mem = { images: d.images || {}, reciters: d.reciters || null, tajweed: d.tajweed || null, tajweedAudio: d.tajweedAudio || {} };
       try { localStorage.setItem(CACHE, JSON.stringify(mem)); } catch (e) {}
       subs.forEach((f) => f(mem));
     })
