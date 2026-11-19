@@ -162,3 +162,4 @@
   .qset-size .t{font-size:22px}.qset-size .top{gap:26px}
   .qset-app{font-size:20px}.qset-app select{font-size:21px;flex-basis:150px}
 }
+.qset-themeimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}

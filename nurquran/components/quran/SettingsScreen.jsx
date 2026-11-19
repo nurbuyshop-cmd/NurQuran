@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { FONTS, loadPage, loadPageFont, addStaticFonts } from "@/lib/quran/mushaf";
 import { RECITERS, ayahAudioUrl } from "@/lib/quran/reciters";
 import { G } from "./QIcons";
+import { useSiteImages } from "@/lib/siteImages";
 import "./settings.css";
 
 const THEMES = [
@@ -59,7 +60,8 @@ function Lock({ locked }) {
   );
 }
 
-function ThemeThumb({ id }) {
+function ThemeThumb({ id, img }) {
+  if (img) return <img className="qset-themeimg" src={img} alt="" />;
   return (
     <span className={`qset-phone t-${id}`} aria-hidden="true">
       <i className="bar" />
@@ -85,11 +87,12 @@ function playSample(id, setPlaying) {
 // otherwise a monogram with the reciter's initials.
 const initials = (name) => name.replace(/^(Abdur|Abdul|Abu)[- ]/, (m) => m.trim() + " ").split(/[\s-]+/).filter((w) => !/^(Al|As|Ash|Ad|Ar|An|Abdus)$/i.test(w)).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 const HUES = [152, 200, 28, 265, 340, 180, 45, 220, 10, 120, 290, 60, 235, 165];
-function Avatar({ r, i, photos }) {
-  const [bad, setBad] = useState(false);
+function Avatar({ r, i, photos, uploaded }) {
+  const [bad, setBad] = useState(0); // 1: uploaded photo failed, 2: local photo failed too
   const base = typeof window !== "undefined" ? window.__QURAN_BASE__ || "" : "";
-  if (photos && r.id !== "admin" && !bad) {
-    return <img className="pic" src={`${base}/reciters/${r.id}.jpg`} alt="" loading="lazy" onError={() => setBad(true)} />;
+  if (photos && r.id !== "admin") {
+    if (uploaded && bad < 1) return <img className="pic" src={uploaded} alt="" loading="lazy" onError={() => setBad(1)} />;
+    if (bad < 2) return <img className="pic" src={`${base}/reciters/${r.id}.jpg`} alt="" loading="lazy" onError={() => setBad(2)} />;
   }
   const h = HUES[i % HUES.length];
   return (
@@ -100,6 +103,7 @@ function Avatar({ r, i, photos }) {
 }
 
 function ReciterCard({ prefs, save, hasAdminAudio }) {
+  const imgs = useSiteImages();
   const [playing, setPlaying] = useState(null);
   const [all, setAll] = useState(false);
   const rowRef = useRef(null);
@@ -121,7 +125,7 @@ function ReciterCard({ prefs, save, hasAdminAudio }) {
             <div key={r.id} role="button" tabIndex={0} className={`qset-ri${on ? " on" : ""}`} title={`${r.name} — ${r.place}`}
               onClick={() => save({ reciter: r.id })} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && save({ reciter: r.id })}>
               <span className="circ">
-                <Avatar r={r} i={i} photos={prefs.reciterPhotos !== false} />
+                <Avatar r={r} i={i} photos={prefs.reciterPhotos !== false} uploaded={imgs[`reciter:${r.id}`]} />
                 {r.id !== "admin" && (
                   <button className="pl" aria-label={`Listen to ${r.name}`} onClick={(e) => { e.stopPropagation(); playSample(r.id, setPlaying); }}>
                     {playing === r.id
@@ -153,6 +157,7 @@ function ReciterCard({ prefs, save, hasAdminAudio }) {
 // The cards on their own — used in the reader's Settings screen and on the home page
 export function SettingsCards({ prefs, save, colorOk, hasAdminAudio }) {
   const samples = useSamples();
+  const imgs = useSiteImages();
   useEffect(() => { addStaticFonts(); }, []);
   const sizeOff = prefs.sizeLock || prefs.lines15;
   const sampleFam = prefs.qfont === "indopak" ? "NQ IndoPak" : "NQ Uthmanic";
@@ -202,7 +207,7 @@ export function SettingsCards({ prefs, save, colorOk, hasAdminAudio }) {
               const on = prefs.theme === t.id;
               return (
                 <button key={t.id} className={`qset-opt${on ? " on" : ""}`} onClick={() => save({ theme: t.id })}>
-                  <span className="circ"><ThemeThumb id={t.id} /></span>
+                  <span className="circ"><ThemeThumb id={t.id} img={imgs[`theme:${t.id}`]} /></span>
                   <span className="name">{t.label}</span>
                 </button>
               );

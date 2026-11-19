@@ -9,6 +9,7 @@ const NAV = [
   ["/", "Dashboard", I.dash],
   ["/pages/", "Quran Pages", I.pages],
   ["/surahs/", "Surahs", I.surah],
+  ["/images/", "Images", I.image],
   ["/settings/", "Settings", I.settings],
   ["/admins/", "Admins", I.users],
   ["/backup/", "Backup", I.backup],

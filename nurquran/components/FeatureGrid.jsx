@@ -1,4 +1,6 @@
+"use client";
 import Link from "next/link";
+import { useSiteImages } from "@/lib/siteImages";
 import {
   QuranIcon, TasbeehIcon, TajweedIcon, QiblaIcon, ECardIcon,
   PrayerTimesIcon, InflightIcon, HifzIcon, HijriIcon, AllahNamesIcon,
@@ -6,24 +8,26 @@ import {
 
 // Change href values as each page gets built.
 const FEATURES = [
-  { label: "Read Quran", href: "/quran", Icon: QuranIcon },
-  { label: "Tasbeeh", href: "/tasbeeh", Icon: TasbeehIcon },
-  { label: "Learn Tajweed", href: "#", Icon: TajweedIcon },
-  { label: "Qibla", href: "/qibla", Icon: QiblaIcon },
-  { label: "E-Card", href: "#", Icon: ECardIcon },
-  { label: "Prayers Times", href: "/prayer-times", Icon: PrayerTimesIcon },
-  { label: "Inflight Prayer Times", href: "#", Icon: InflightIcon },
-  { label: "Hifz", href: "#", Icon: HifzIcon },
-  { label: "Hijri", href: "#", Icon: HijriIcon },
-  { label: "Allah Name", href: "#", Icon: AllahNamesIcon },
+  { key: "read-quran", label: "Read Quran", href: "/quran", Icon: QuranIcon },
+  { key: "tasbeeh", label: "Tasbeeh", href: "/tasbeeh", Icon: TasbeehIcon },
+  { key: "learn-tajweed", label: "Learn Tajweed", href: "#", Icon: TajweedIcon },
+  { key: "qibla", label: "Qibla", href: "/qibla", Icon: QiblaIcon },
+  { key: "e-card", label: "E-Card", href: "#", Icon: ECardIcon },
+  { key: "prayer-times", label: "Prayers Times", href: "/prayer-times", Icon: PrayerTimesIcon },
+  { key: "inflight", label: "Inflight Prayer Times", href: "#", Icon: InflightIcon },
+  { key: "hifz", label: "Hifz", href: "#", Icon: HifzIcon },
+  { key: "hijri", label: "Hijri", href: "#", Icon: HijriIcon },
+  { key: "allah-names", label: "Allah Name", href: "#", Icon: AllahNamesIcon },
 ];
 
+// The icon pictures can be replaced from the admin panel (Images → Home page icons)
 export default function FeatureGrid() {
+  const imgs = useSiteImages();
   return (
     <section className="features">
-      {FEATURES.map(({ label, href, Icon }) => (
+      {FEATURES.map(({ key, label, href, Icon }) => (
         <Link key={label} href={href} className="feat">
-          <div className="icon"><Icon /></div>
+          <div className="icon">{imgs[`feature:${key}`] ? <img src={imgs[`feature:${key}`]} alt="" /> : <Icon />}</div>
           <span>{label}</span>
         </Link>
       ))}
