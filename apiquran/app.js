@@ -222,7 +222,7 @@ app.post("/v1/admin/upload", auth, upload.single("file"), (req, res) => {
 });
 
 /* ---------- images (reciter photos, home icons, theme pictures) ---------- */
-const SLOT = /^(reciter|feature|theme):[a-z0-9-]{1,40}$/;
+const SLOT = /^(reciter|feature|theme|notif):[a-z0-9-]{1,40}$/;
 // everything the visitors' site needs from the admin panel in one small call
 app.get("/v1/site", (req, res) => {
   const d = getImages();
@@ -272,6 +272,56 @@ app.delete("/v1/admin/images", auth, (req, res) => {
   delete items[slot];
   store.write("images", { updatedAt: new Date().toISOString(), items });
   log(req.admin, "removed picture", slot);
+  ok(res, {});
+});
+
+/* ---------- notifications (shown on the website's Notifications page) ---------- */
+const getNotifs = () => store.read("notifications", []);
+const cleanNotif = (b, cur = {}) => {
+  const title = String(b.title ?? cur.title ?? "").trim().slice(0, 120);
+  const body = String(b.body ?? cur.body ?? "").trim().slice(0, 2000);
+  const link = String(b.link ?? cur.link ?? "").trim().slice(0, 500);
+  if (!title) return { error: "Enter a title." };
+  if (link && !/^(https?:\/\/|\/)/i.test(link)) return { error: "Link must start with http://, https:// or / (a page of the website)." };
+  return { title, body, link };
+};
+app.get("/v1/notifications", (req, res) => {
+  res.set("Cache-Control", "no-cache");
+  ok(res, { notifications: getNotifs().slice(0, 100) });
+});
+app.get("/v1/admin/notifications", auth, (req, res) => ok(res, { notifications: getNotifs() }));
+app.post("/v1/admin/notifications", auth, (req, res) => {
+  const c = cleanNotif(req.body || {});
+  if (c.error) return fail(res, 400, c.error);
+  const n = { id: `n${Date.now().toString(36)}`, ...c, createdAt: new Date().toISOString(), by: req.admin.name };
+  store.write("notifications", [n, ...getNotifs()].slice(0, 300));
+  log(req.admin, "added notification", c.title);
+  ok(res, { notification: n });
+});
+app.put("/v1/admin/notifications/:id", auth, (req, res) => {
+  const list = getNotifs();
+  const cur = list.find((x) => x.id === req.params.id);
+  if (!cur) return fail(res, 404, "Notification not found.");
+  const c = cleanNotif(req.body || {}, cur);
+  if (c.error) return fail(res, 400, c.error);
+  const n = { ...cur, ...c, updatedAt: new Date().toISOString() };
+  store.write("notifications", list.map((x) => (x.id === n.id ? n : x)));
+  log(req.admin, "edited notification", c.title);
+  ok(res, { notification: n });
+});
+app.delete("/v1/admin/notifications/:id", auth, (req, res) => {
+  const list = getNotifs();
+  const cur = list.find((x) => x.id === req.params.id);
+  if (!cur) return fail(res, 404, "Notification not found.");
+  store.write("notifications", list.filter((x) => x.id !== cur.id));
+  const imgs = getImages();
+  const slot = `notif:${cur.id}`;
+  if (imgs.items[slot]) {
+    removeImageFile(imgs.items[slot]);
+    const items = { ...imgs.items }; delete items[slot];
+    store.write("images", { updatedAt: new Date().toISOString(), items });
+  }
+  log(req.admin, "deleted notification", cur.title);
   ok(res, {});
 });
 

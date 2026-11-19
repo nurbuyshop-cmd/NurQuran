@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuranContent } from "@/lib/quran/data";
-import { SURAHS, JUZ_NAMES, surah } from "@/lib/quran/meta";
+import { SURAHS, JUZ_NAMES, surah, toArabicDigits } from "@/lib/quran/meta";
 import {
   FONTS, fontInfo, TOTAL_PAGES, ALL_AYAHS, supportsColorFont, addStaticFonts, loadPageFont, pageFontFamily,
   loadIndex, loadPage, loadSearch, pageOfAyah, surahOfPage, juzOfPage,
@@ -83,6 +83,7 @@ export default function QuranReader() {
   const [colorOk, setColorOk] = useState(true);
   const [chrome, setChrome] = useState(true);
   const [sel, setSel] = useState(null);           // {s,a,x,y} tapped ayah + popup position
+  const [flash, setFlash] = useState(null);       // ayah opened from Search / a link: highlighted for a moment
   const [menu, setMenu] = useState(false);
   const [screen, setScreen] = useState(null);     // index | customize | bookmarks | search | settings
   const [indexTab, setIndexTab] = useState("juz");
@@ -195,6 +196,14 @@ export default function QuranReader() {
   // reopen where the reader stopped last time
   useEffect(() => {
     if (!prefs || !index || resumed.current) return;
+    const qs = new URLSearchParams(location.search || (location.hash.split("?")[1] || ""));
+    const qS = +qs.get("s"), qA = +qs.get("a") || 1, qP = +qs.get("page");
+    if (qS >= 1 && qS <= 114) {
+      const a = Math.min(qA, surah(qS).ayahs);
+      setTimeout(() => { scrollToAyah(qS, a, false); setFlash(key(qS, a)); setTimeout(() => setFlash(null), 4000); setTimeout(() => (resumed.current = true), 1500); }, 50);
+      return;
+    }
+    if (qP >= 1 && qP <= TOTAL_PAGES) { setTimeout(() => { scrollToPage(qP); setTimeout(() => (resumed.current = true), 1500); }, 50); return; }
     const lp = prefs.lastPos;
     const p = lp && lp.page ? lp.page : 1;
     if (p > 1) setTimeout(() => { scrollToPage(p); setTimeout(() => (resumed.current = true), 1500); }, 50);
@@ -240,9 +249,52 @@ export default function QuranReader() {
     }
     scrollToAyah(s, a, true);
   };
+  // Echo: route the recitation through Web Audio (dry + a short reverb). Built the first time Echo is used.
+  const fx = useRef(null);
+  const ensureFx = () => {
+    if (fx.current || typeof window === "undefined") return fx.current;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try {
+      const ctx = new AC();
+      const src = ctx.createMediaElementSource(audioEl.current);
+      const dry = ctx.createGain(), wet = ctx.createGain(), conv = ctx.createConvolver();
+      const len = Math.floor(ctx.sampleRate * 2.2), ir = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+      conv.buffer = ir;
+      src.connect(dry).connect(ctx.destination);
+      src.connect(conv).connect(wet).connect(ctx.destination);
+      dry.gain.value = 1; wet.gain.value = 0;
+      fx.current = { ctx, wet };
+    } catch (e) { fx.current = null; }
+    return fx.current;
+  };
+  const applyEcho = () => {
+    const on = !!prefsRef.current?.echo;
+    if (!on && !fx.current) return;
+    const f = ensureFx();
+    if (!f) return;
+    if (f.ctx.state === "suspended") f.ctx.resume().catch(() => {});
+    f.wet.gain.value = on ? 0.38 : 0;
+  };
+  useEffect(() => { if (audio.on) applyEcho(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [prefs?.echo]);
+  // Audio Smoother: each ayah fades in, and fades out just before it ends
+  const fadeRaf = useRef(0);
+  const fadeIn = () => {
+    const el = audioEl.current;
+    cancelAnimationFrame(fadeRaf.current);
+    if (!prefsRef.current || prefsRef.current.audioSmoother === false) { el.volume = 1; return; }
+    const t0 = performance.now();
+    el.volume = 0.05;
+    const step = (t) => { const k = Math.min(1, (t - t0) / 260); el.volume = 0.05 + 0.95 * k; if (k < 1) fadeRaf.current = requestAnimationFrame(step); };
+    fadeRaf.current = requestAnimationFrame(step);
+  };
   const playSrc = (src, idx) => {
     const el = audioEl.current;
+    el.crossOrigin = "anonymous";
+    applyEcho();
     el.src = src;
+    fadeIn();
     el.playbackRate = prefsRef.current.speed;
     el.play().then(() => setAudio((x) => ({ ...x, on: true, playing: true, idx }))).catch((e) => {
       if (e && e.name === "NotAllowedError") { setAudio((x) => ({ ...x, on: true, playing: false, idx })); return; }
@@ -270,7 +322,7 @@ export default function QuranReader() {
     const nx = AYAHS[idx + 1];
     const nsrc = nx && srcFor(nx.s, nx.a);
     if (nsrc) {
-      if (!preloadEl.current) { preloadEl.current = new Audio(); preloadEl.current.preload = "auto"; }
+      if (!preloadEl.current) { preloadEl.current = new Audio(); preloadEl.current.preload = "auto"; preloadEl.current.crossOrigin = "anonymous"; }
       preloadEl.current.src = nsrc;
     }
     if ("mediaSession" in navigator) {
@@ -290,7 +342,11 @@ export default function QuranReader() {
   useEffect(() => {
     const el = audioEl.current;
     if (!el) return;
-    const t = () => setAudio((x) => ({ ...x, cur: el.currentTime || 0, dur: el.duration || 0 }));
+    const t = () => {
+      setAudio((x) => ({ ...x, cur: el.currentTime || 0, dur: el.duration || 0 }));
+      const left = (el.duration || 0) - (el.currentTime || 0);
+      if (prefsRef.current && prefsRef.current.audioSmoother !== false && el.duration && left < 0.3 && !bismRef.current) el.volume = Math.max(0.15, left / 0.3);
+    };
     const end = () => {
       if (bismRef.current) {        // bismillah finished: now the ayah itself
         bismRef.current = false;
@@ -440,10 +496,10 @@ export default function QuranReader() {
 
   const mode = { font, layout, lines15, showTr: !!prefs.showTr, scale: sizeScale(prefs.size), desk: isDesk };
   const pagesEl = (
-    <div className={`qr-pages f-${font}${lines15 ? " m15" : ""}${prefs.pageLines ? " ruled" : ""}`} style={{ "--fs": mode.scale }} onClick={onPageClick}>
+    <div className={`qr-pages f-${font}${lines15 ? " m15" : ""}${prefs.pageLines ? " ruled" : ""}${prefs.textEffects ? " fx" : ""}`} style={{ "--fs": mode.scale }} onClick={onPageClick}>
       {index ? PAGE_NUMS.map((p) => (
         <PageView key={`${layout}-${p}`} p={p} mode={mode} bism={index.bism}
-          hl={[selKey, playingKey].filter(Boolean).join(",")} hifz={hifz} revealed={hifz ? revealed : null} />
+          hl={[selKey, playingKey, flash].filter(Boolean).join(",")} hifz={hifz} revealed={hifz ? revealed : null} />
       )) : <div className="qr-loading">Loading the Quran…</div>}
       {index && <div className="qr-end"><p>صَدَقَ ٱللَّهُ ٱلْعَظِيمُ</p></div>}
     </div>
@@ -457,11 +513,11 @@ export default function QuranReader() {
         <DesktopLayout ctx={ctx} view={view} curS={curS} pagesEl={pagesEl} auto={auto} setAuto={setAuto} audio={audio} hifz={hifz} />
       ) : (
         <>
-          <MobileHeader view={view} curS={curS} chrome={chrome} onBack={() => run("exit")}
+          <MobileHeader view={view} curS={curS} chrome={chrome} onBack={() => run("exit")} arabic={!!prefs.arabicIndex} pageNo={prefs.pageIndex !== false}
             onJuz={() => { setIndexTab("juz"); setScreen("index"); }} onSura={() => { setIndexTab("sura"); setScreen("index"); }} />
           {pagesEl}
           {chrome && !auto.on && !audio.on && (
-            <nav className="qr-toolbar">
+            <nav className={`qr-toolbar${prefs.newToolbar === false ? " compact" : ""}`}>
               {toolbar.map((id) => (
                 <button key={id} className={(id === "hifz" && hifz) || (id === "translations" && prefs.showTr) ? "on" : ""} onClick={() => run(id)}>
                   <span className="i">{Ico[id]()}</span>
@@ -728,12 +784,15 @@ function PrayerStrip() {
   );
 }
 
-function MobileHeader({ view, curS, chrome, onBack, onJuz, onSura }) {
+function MobileHeader({ view, curS, chrome, onBack, onJuz, onSura, arabic, pageNo }) {
+  const juz = arabic ? <span className="ar" dir="rtl">الجزء {toArabicDigits(view.juz)}</span> : `JUZ ${view.juz}`;
+  const sura = arabic ? <span className="ar" dir="rtl">{curS.ar}</span> : curS.en.toUpperCase();
+  const pg = pageNo ? (arabic ? toArabicDigits(view.page) : view.page) : "";
   if (!chrome)
     return (
       <header className="qr-head mini">
         <button className="b" onClick={onBack} aria-label="Back"><G.back /></button>
-        <span onClick={onJuz}>JUZ {view.juz}</span><span>{view.page}</span><span onClick={onSura}>{curS.en.toUpperCase()}</span>
+        <span onClick={onJuz}>{juz}</span><span>{pg}</span><span onClick={onSura}>{sura}</span>
       </header>
     );
   return (
@@ -741,9 +800,9 @@ function MobileHeader({ view, curS, chrome, onBack, onJuz, onSura }) {
       <PrayerStrip />
       <div className="qr-head-row">
         <button className="b" onClick={onBack} aria-label="Back"><G.back /></button>
-        <button className="pill" onClick={onJuz}>JUZ {view.juz}</button>
-        <span className="pg">{view.page}</span>
-        <button className="pill" onClick={onSura}>{curS.en.toUpperCase()}</button>
+        <button className="pill" onClick={onJuz}>{juz}</button>
+        <span className="pg">{pg}</span>
+        <button className="pill" onClick={onSura}>{sura}</button>
       </div>
     </header>
   );

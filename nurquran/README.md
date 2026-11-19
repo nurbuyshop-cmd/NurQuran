@@ -1,6 +1,7 @@
 # nurquran — visitors' website (nurquran.toptol.site)
 
-Next.js, exported as a static site. Pages: Home, Read Quran (`/quran`), Prayer Times, Qibla, Tasbeeh.
+Next.js, exported as a static site. Pages: Home, Read Quran (`/quran`, opens at `/quran/?s=2&a=255` or `?page=50`), Prayer Times, Qibla, Tasbeeh,
+Search (`/search`), Notifications (`/notifications`), Advanced Settings (`/settings`).
 The full Quran (all 604 pages, 114 surahs, 6236 ayahs) ships with the site as small static files in `public/quran/`
 and is loaded page by page while reading. Translations and audio added in the admin panel still come from the API (`NEXT_PUBLIC_API_URL`).
 
@@ -26,3 +27,9 @@ The reciter is chosen on the home page (Quran settings) or in the reader's Setti
 - `npm run cities` — regenerates `public/data` (world cities with timezones)
 
 Fonts: put `AlMajeedQuranic.ttf` (or `.woff2`) in `public/fonts/`. Adhan recordings: see `public/sounds/README.txt`.
+
+Search: Exact / Affixes / All Roots over the Arabic text, or any translation in `public/quran/tr/`
+(Saheeh International, Pickthall, Taisirul Quran, Dr. Abu Bakr Zakaria, Indonesian Ministry, Junagarhi — Quran.com API).
+Roots come from the Quranic Arabic Corpus morphology (GPL) in `public/quran/roots.json`. "Ask AI" ranks ayahs by the key
+words of a question (Arabic, English, Bengali); it runs in the browser and needs no AI service.
+Notifications are written in the admin panel (Notifications page).

@@ -151,5 +151,9 @@ writeFileSync(path.join(OUT, "index.json"), JSON.stringify({
   v2: { surah: v2.surahStart, juz: v2.juzStart, ayah: pack(v2.ayahPage) },
   v1: { surah: v1.surahStart, juz: v1.juzStart, ayah: pack(v1.ayahPage) },
 }));
-writeFileSync(path.join(OUT, "search.json"), JSON.stringify(verses.map((v) => { const [s, a] = v.verse_key.split(":").map(Number); return [s, a, v.text_uthmani]; })));
+// [surah, ayah, Uthmani text (for searching / sharing), KFGQPC Hafs text (for showing, with the ayah number)]
+const byKey = new Map(verses.map((v) => [v.verse_key, v]));
+const ordered = [];
+for (let s = 1; s <= 114; s++) for (let a = 1; byKey.has(`${s}:${a}`); a++) ordered.push(byKey.get(`${s}:${a}`));
+writeFileSync(path.join(OUT, "search.json"), JSON.stringify(ordered.map((v) => { const [s, a] = v.verse_key.split(":").map(Number); return [s, a, v.text_uthmani, v.text_qpc_hafs]; })));
 console.log(`index.json + search.json written; IndoPak ayahs split by spreading: ${indoFallback}; word positions put back in reading order: ${fixedOrder}`);

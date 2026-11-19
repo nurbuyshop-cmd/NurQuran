@@ -6,9 +6,12 @@ import TasbeehPage from "@/app/tasbeeh/page";
 import PrayerTimesPage from "@/app/prayer-times/page";
 import QiblaPage from "@/app/qibla/page";
 import QuranPage from "@/app/quran/page";
+import SearchP from "@/app/search/page";
+import NotifP from "@/app/notifications/page";
+import SettingsP from "@/app/settings/page";
 import AlarmRunner from "@/components/AlarmRunner";
 
-const ROUTES = { "": Home, tasbeeh: TasbeehPage, "prayer-times": PrayerTimesPage, qibla: QiblaPage, quran: QuranPage };
+const ROUTES = { "": Home, tasbeeh: TasbeehPage, "prayer-times": PrayerTimesPage, qibla: QiblaPage, quran: QuranPage, search: SearchP, notifications: NotifP, settings: SettingsP };
 
 function App() {
   const read = () => location.hash.replace(/^#/, "");
@@ -18,7 +21,7 @@ function App() {
     window.addEventListener("hashchange", on);
     return () => window.removeEventListener("hashchange", on);
   }, []);
-  const Page = ROUTES[route] || Home;
+  const Page = ROUTES[route.split(/[/?]/)[0]] || Home;
   return <><Page /><AlarmRunner /></>;
 }
 createRoot(document.getElementById("root")).render(<App />);

@@ -5,6 +5,7 @@ import Link from "next/link";
 import HeroScene from "./HeroScene";
 import { getPrayerState, fmtTime, fmtGreg, hijriDate } from "@/lib/prayerEngine";
 import { usePrayerSettings } from "@/lib/prayerStore";
+import { useNotifications } from "@/lib/notifications";
 
 const STRIP_ICONS = {
   Fajr: <path d="M3 17h18M6 17a6 6 0 0112 0M12 5v3M5 9l2 2M19 9l-2 2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />,
@@ -37,6 +38,7 @@ const NAV = [
 export default function PrayerHeader() {
   const [settings] = usePrayerSettings();
   const [state, setState] = useState(null);
+  const { unread } = useNotifications();
 
   useEffect(() => {
     if (!settings) return;
@@ -87,22 +89,23 @@ export default function PrayerHeader() {
 
             <div className="tools">
               <button className="premium">Premium</button>
-              <button className="ico-btn" aria-label="Search">
+              <Link href="/search" className="ico-btn" aria-label="Search">
                 <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
                   <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L21 21" />
                   <path d="M10.5 7.5v2M9.5 8.5h2" strokeWidth="1.6" /><path d="M8 12.5l1 .2" strokeWidth="1.4" />
                 </svg>
-              </button>
-              <button className="ico-btn" aria-label="Notifications">
+              </Link>
+              <Link href="/notifications" className="ico-btn bell" aria-label={unread ? `Notifications (${unread} new)` : "Notifications"}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z" /><path d="M10 20.5a2 2 0 004 0" />
                 </svg>
-              </button>
-              <button className="ico-btn" aria-label="Settings">
+                {unread > 0 && <i className="badge">{unread > 9 ? "9+" : unread}</i>}
+              </Link>
+              <Link href="/settings" className="ico-btn" aria-label="Settings">
                 <svg viewBox="0 0 24 24" fill="#fff">
                   <path transform="translate(-1 0)" d="M19.4 13a7.6 7.6 0 000-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 00-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 00-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 000 2l-2.2 1.6 2 3.5 2.5-1a7.4 7.4 0 001.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 001.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z" />
                 </svg>
-              </button>
+              </Link>
             </div>
           </div>
 

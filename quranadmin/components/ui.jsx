@@ -20,6 +20,7 @@ export const I = {
   down: () => <svg viewBox="0 0 24 24" {...S}><path d="M6 9l6 6 6-6" /></svg>,
   eye: () => <svg viewBox="0 0 24 24" {...S}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>,
   ext: () => <svg viewBox="0 0 24 24" {...S}><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" /></svg>,
+  bell: () => <svg viewBox="0 0 24 24" {...S}><path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z" /><path d="M10 20.5a2 2 0 004 0" /></svg>,
   image: () => <svg viewBox="0 0 24 24" {...S}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M21 16l-5-5-9 9" /></svg>,
   music: () => <svg viewBox="0 0 24 24" {...S}><path d="M9 18V5l11-2v13" /><circle cx="6.5" cy="18" r="2.5" /><circle cx="17.5" cy="16" r="2.5" /></svg>,
   check: () => <svg viewBox="0 0 24 24" {...S} strokeWidth="2.4"><path d="M5 12.5l4.5 4.5L19 7" /></svg>,
