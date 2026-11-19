@@ -85,6 +85,19 @@ export async function mockRequest(path, method, body, form, token) {
     }
     case url === "/v1/images": return { ok: true, images: db.images || {} };
     case url === "/v1/site": return { ok: true, images: db.images || {}, reciters: db.settings.reciters || null };
+    case url === "/v1/admin/notifications" && method === "GET": return { ok: true, notifications: db.notifications || [] };
+    case url === "/v1/admin/notifications" && method === "POST": {
+      if (!String(body.title || "").trim()) return err("Enter a title.");
+      const n = { id: `n${Date.now().toString(36)}`, title: body.title.trim(), body: (body.body || "").trim(), link: (body.link || "").trim(), createdAt: nowIso, by: me.name };
+      db.notifications = [n, ...(db.notifications || [])]; log(db, me.name, "added notification", n.title); save(db); return { ok: true, notification: n };
+    }
+    case /^\/v1\/admin\/notifications\/[^/]+$/.test(url) && method === "PUT": {
+      const id = url.split("/").pop(); const cur = (db.notifications || []).find((x) => x.id === id); if (!cur) return err("Notification not found.", 404);
+      Object.assign(cur, { title: body.title, body: body.body, link: body.link, updatedAt: nowIso }); save(db); return { ok: true, notification: cur };
+    }
+    case /^\/v1\/admin\/notifications\/[^/]+$/.test(url) && method === "DELETE": {
+      const id = url.split("/").pop(); db.notifications = (db.notifications || []).filter((x) => x.id !== id); save(db); return { ok: true };
+    }
     case url === "/v1/admin/images" && method === "POST": {
       const f = form && form.get("file");
       if (!f) return err("Choose a picture.");

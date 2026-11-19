@@ -15,6 +15,8 @@ export const PREF_DEFAULTS = {
   bookmarks: [], reading: null, speed: 1, repeat: 1, reciter: DEFAULT_RECITER, bismillah: true,
   qfont: "indopak", lines15: false, pageLines: true, screenOn: true, size: 47, sizeLock: false,
   theme: "green", appearance: "light",
+  // Advanced Settings
+  newToolbar: true, textEffects: false, arabicIndex: false, pageIndex: true, audioSmoother: true, echo: false, autoBackup: false,
 };
 
 export function loadPrefs() {

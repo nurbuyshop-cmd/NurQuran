@@ -289,3 +289,13 @@ body:has(.qr-root[data-theme=night]){background:#0f1311}
 .qr-root[data-ui=dark] .qr-pop,.qr-root[data-ui=dark] .qr-dlg{background:#1f2522;color:#e6ebe7}
 
 .qa.hl .qw.qe,.qw.qe.hl{color:var(--red)}
+
+/* Advanced Settings effects */
+.qr-toolbar.compact{padding:4px 2px 3px}
+.qr-toolbar.compact .l{display:none}
+.qr-toolbar.compact .i{width:34px;height:34px}
+.qr-pages.fx .qa,.qr-pages.fx .qw{text-shadow:0 1px 1.5px rgba(0,0,0,.18)}
+.qr-pages.fx .qa.hl,.qr-pages.fx .qw.hl{text-shadow:0 0 10px rgba(211,47,47,.35)}
+.qr-root[data-theme=night] .qr-pages.fx .qa,.qr-root[data-theme=night] .qr-pages.fx .qw{text-shadow:0 0 6px rgba(127,209,155,.25)}
+.qr-head .pill .ar,.qr-head.mini .ar{font-size:1.15em;font-family:var(--font-quran)}
+.qr-head .pill .ar{font-size:1.05em;line-height:1.2;display:inline-block}

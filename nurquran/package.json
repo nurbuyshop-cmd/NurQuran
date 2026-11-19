@@ -7,7 +7,7 @@
     "build": "next build",
     "preview": "node scripts/build-preview.mjs",
     "cities": "node scripts/build-cities.mjs",
-    "quran": "node scripts/quran-download.mjs && node scripts/quran-build.mjs",
+    "quran": "node scripts/quran-download.mjs && node scripts/quran-build.mjs && node scripts/quran-extra.mjs",
     "quran-fonts": "node scripts/quran-fonts.mjs"
   },
   "dependencies": {
