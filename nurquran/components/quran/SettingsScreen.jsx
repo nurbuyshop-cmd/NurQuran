@@ -1,6 +1,6 @@
 "use client";
 // Quran settings — mobile layout follows the reference app screenshot (Quran Font, toggles, Size Adjust, Themes).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FONTS, loadPage, loadPageFont, addStaticFonts } from "@/lib/quran/mushaf";
 import { RECITERS, ayahAudioUrl } from "@/lib/quran/reciters";
 import { G } from "./QIcons";
@@ -81,39 +81,66 @@ function playSample(id, setPlaying) {
   } catch (e) {}
 }
 
+// Round reciter picture: the photo in public/reciters/<id>.jpg when it exists (and Photos is on),
+// otherwise a monogram with the reciter's initials.
+const initials = (name) => name.replace(/^(Abdur|Abdul|Abu)[- ]/, (m) => m.trim() + " ").split(/[\s-]+/).filter((w) => !/^(Al|As|Ash|Ad|Ar|An|Abdus)$/i.test(w)).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+const HUES = [152, 200, 28, 265, 340, 180, 45, 220, 10, 120, 290, 60, 235, 165];
+function Avatar({ r, i, photos }) {
+  const [bad, setBad] = useState(false);
+  const base = typeof window !== "undefined" ? window.__QURAN_BASE__ || "" : "";
+  if (photos && r.id !== "admin" && !bad) {
+    return <img className="pic" src={`${base}/reciters/${r.id}.jpg`} alt="" loading="lazy" onError={() => setBad(true)} />;
+  }
+  const h = HUES[i % HUES.length];
+  return (
+    <span className="mono" style={{ background: `linear-gradient(145deg,hsl(${h} 45% 42%),hsl(${h + 25} 55% 28%))` }}>
+      {r.id === "admin" ? "↑" : initials(r.name)}
+    </span>
+  );
+}
+
 function ReciterCard({ prefs, save, hasAdminAudio }) {
   const [playing, setPlaying] = useState(null);
+  const [all, setAll] = useState(false);
+  const rowRef = useRef(null);
   useEffect(() => () => { try { sampleAudio && sampleAudio.pause(); } catch (e) {} }, []);
-  const list = hasAdminAudio ? [...RECITERS, { id: "admin", name: "Uploaded recordings", ar: "", place: "Added from the admin panel" }] : RECITERS;
+  const list = hasAdminAudio ? [...RECITERS, { id: "admin", name: "Uploaded recordings", place: "Admin panel" }] : RECITERS;
+  // keep the chosen reciter in view in the sliding row
+  useEffect(() => {
+    const row = rowRef.current;
+    const el = row && row.querySelector(".qset-ri.on");
+    if (row && el && !all) row.scrollTo({ left: el.offsetLeft - (row.clientWidth - el.offsetWidth) / 2, behavior: "smooth" });
+  }, [prefs.reciter, all]);
   return (
     <section className="qset-card rec">
       <h3><span>Reciter</span></h3>
-      <p className="qset-hint">The whole Quran plays in the voice you choose. Tap an ayah and press play to start from that ayah.</p>
-      <div className="qset-rec">
-        {list.map((r) => {
+      <div ref={rowRef} className={`qset-recrow${all ? " all" : ""}`}>
+        {list.map((r, i) => {
           const on = prefs.reciter === r.id;
           return (
-            <div key={r.id} role="button" tabIndex={0} className={`qset-rc${on ? " on" : ""}`}
+            <div key={r.id} role="button" tabIndex={0} className={`qset-ri${on ? " on" : ""}`} title={`${r.name} — ${r.place}`}
               onClick={() => save({ reciter: r.id })} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && save({ reciter: r.id })}>
-              <span className="av" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21M8.5 21h7" /></svg>
+              <span className="circ">
+                <Avatar r={r} i={i} photos={prefs.reciterPhotos !== false} />
+                {r.id !== "admin" && (
+                  <button className="pl" aria-label={`Listen to ${r.name}`} onClick={(e) => { e.stopPropagation(); playSample(r.id, setPlaying); }}>
+                    {playing === r.id
+                      ? <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                      : <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l11 7-11 7z" /></svg>}
+                  </button>
+                )}
               </span>
-              <span className="tx">
-                <b>{r.name}</b>
-                {r.ar && <span className="ar" dir="rtl">{r.ar}</span>}
-                <small>{r.place}</small>
-              </span>
-              {r.id !== "admin" && (
-                <button className="pl" aria-label={`Listen to ${r.name}`} onClick={(e) => { e.stopPropagation(); playSample(r.id, setPlaying); }}>
-                  {playing === r.id
-                    ? <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
-                    : <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l11 7-11 7z" /></svg>}
-                </button>
-              )}
-              <span className="ck" aria-hidden="true" />
+              <span className="name">{r.name}</span>
             </div>
           );
         })}
+      </div>
+      <div className="qset-recfoot">
+        <label className="ph">
+          <span>Photos</span>
+          <Toggle label="" on={prefs.reciterPhotos !== false} onChange={(v) => save({ reciterPhotos: v })} />
+        </label>
+        <button className="all" onClick={() => setAll((x) => !x)}>{all ? "Show Less" : "Show All"}</button>
       </div>
       <div className="qset-row">
         <span>Recite Bismillah before each surah</span>

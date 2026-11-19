@@ -555,6 +555,7 @@ const PageView = memo(function PageView({ p, mode, bism, hl, hifz, revealed }) {
   const noFont = fam === "" ; // page font failed to load
   if (noFont && font === "tajweed") return <PageView p={p} mode={{ ...mode, font: "uthmanic" }} bism={bism} hl={hl} hifz={hifz} revealed={revealed} />;
   const glyph = font === "mushaf" || font === "tajweed";
+  const E = layout === "v1" ? 3 : 5; // where the "ayah end" flag sits in a word entry
   const wtext = (w) => (glyph ? w[2] : font === "indopak" ? w[4] : w[3]);
   const bismText = font === "indopak" ? bism.i : bism.q;
   const style = fam ? { fontFamily: `"${fam}"` } : { fontFamily: font === "indopak" ? '"NQ IndoPak"' : '"NQ Uthmanic"' };
@@ -586,7 +587,7 @@ const PageView = memo(function PageView({ p, mode, bism, hl, hifz, revealed }) {
               <div key={i} className="ml mw" dir="rtl" style={style}>
                 {l.w.map((w, j) => {
                   const k = `${w[0]}:${w[1]}`;
-                  const end = w[glyph ? 3 : 5];
+                  const end = w[E];
                   return <span key={j} data-k={k} className={`qw${end ? " qe" : ""}${cls(k)}`}>{wtext(w)}</span>;
                 })}
               </div>
@@ -615,11 +616,11 @@ const PageView = memo(function PageView({ p, mode, bism, hl, hifz, revealed }) {
   // the ayah-end marker always stays on the same line as the word before it
   const Ayah = ({ ay }) => {
     const ws = ay.w;
-    const endIdx = ws.findIndex((w) => w[glyph ? 3 : 5]);
+    const endIdx = ws.findIndex((w) => w[E]);
     const cut = endIdx < 0 ? ws.length : Math.max(0, endIdx - 1);
     const head = ws.slice(0, cut);
     const tail = ws.slice(cut);
-    const W = (w, j) => <span key={j} className={w[glyph ? 3 : 5] ? "qw qe" : "qw"}>{wtext(w)}</span>;
+    const W = (w, j) => <span key={j} className={w[E] ? "qw qe" : "qw"}>{wtext(w)}</span>;
     return (
       <span className={`qa${cls(ay.k)}`} data-k={ay.k}>
         {head.map((w, j) => [W(w, j), " "])}
