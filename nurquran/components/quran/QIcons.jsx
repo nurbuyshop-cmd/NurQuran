@@ -52,6 +52,9 @@ export const Ico = {
   customize: () => (
     <svg viewBox="0 0 40 40">{ring()}<path d="M13 27l1.5-5 10-10 3.5 3.5-10 10z" fill="#9e9e9e" /><path d="M24.5 12l3.5 3.5" stroke="#555" strokeWidth="1.5" /><path d="M13 27l1.5-5 3.5 3.5z" fill="#ffcc80" /></svg>
   ),
+  settings: () => (
+    <svg viewBox="0 0 40 40">{ring()}<path d="M20 11.2l1.5.2.6 2.3 1.6.7 2.1-1.2 2.1 2.1-1.2 2.1.7 1.6 2.3.6v3l-2.3.6-.7 1.6 1.2 2.1-2.1 2.1-2.1-1.2-1.6.7-.6 2.3h-3l-.6-2.3-1.6-.7-2.1 1.2-2.1-2.1 1.2-2.1-.7-1.6-2.3-.6v-3l2.3-.6.7-1.6-1.2-2.1 2.1-2.1 2.1 1.2 1.6-.7.6-2.3z" fill="#2fae5c" /><circle cx="20" cy="20" r="3.6" fill="#fff" /></svg>
+  ),
   exit: () => (
     <svg viewBox="0 0 40 40">{ring("#fff8e1", "#ffe082")}<path d="M23 13l-7 7 7 7" fill="none" stroke="#f9a825" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
   ),
@@ -64,7 +67,7 @@ export const ACTIONS = [
   ["play", "Play"], ["bookmarks", "Bookmarks"], ["autoscroll", "Autoscroll"], ["share", "Share"],
   ["translations", "Translations"], ["hifz", "Hifz"], ["tajweed", "Tajweed"], ["visual", "Visual Quran"],
   ["qurantv", "QuranTV"], ["gift", "Gift"], ["search", "Search"], ["goto", "Go to"],
-  ["addbookmark", "Add Bookmark"], ["readingbookmark", "Reading Bookmark"], ["customize", "Customize"],
+  ["addbookmark", "Add Bookmark"], ["readingbookmark", "Reading Bookmark"], ["customize", "Customize"], ["settings", "Settings"],
 ];
 export const ACTION_LABEL = Object.fromEntries(ACTIONS);
 export const SHORT_LABEL = { bookmarks: "Bookmark", translations: "Translatio" };

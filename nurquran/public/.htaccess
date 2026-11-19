@@ -20,3 +20,11 @@ ErrorDocument 404 /404.html
 <IfModule mod_deflate.c>
   AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
 </IfModule>
+
+# Quran text (public/quran/*.json): changes only when the Quran data is rebuilt, so let browsers keep it for a week
+AddType font/woff2 .woff2
+<IfModule mod_headers.c>
+  <If "%{REQUEST_URI} =~ m#^/quran/#">
+    Header set Cache-Control "public, max-age=604800"
+  </If>
+</IfModule>

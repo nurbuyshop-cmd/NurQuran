@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuranContent } from "@/lib/quran/data";
 import { SURAHS, JUZ_NAMES, surah } from "@/lib/quran/meta";
-import { Ico, ACTION_LABEL, SHORT_LABEL, DEFAULT_ORDER, G, AyahMark } from "./QIcons";
+import {
+  FONTS, fontInfo, TOTAL_PAGES, ALL_AYAHS, supportsColorFont, addStaticFonts, loadPageFont, pageFontFamily,
+  loadIndex, loadPage, loadSearch, pageOfAyah, surahOfPage, juzOfPage,
+} from "@/lib/quran/mushaf";
+import { Ico, ACTION_LABEL, SHORT_LABEL, DEFAULT_ORDER, G } from "./QIcons";
+import SettingsScreen from "./SettingsScreen";
 import { usePrayerSettings } from "@/lib/prayerStore";
 import { getPrayerState, fmtTime } from "@/lib/prayerEngine";
 import DesktopNav from "@/components/DesktopNav";
@@ -13,35 +18,43 @@ const PREF_KEY = "quranReader";
 const TOOLBAR_SLOTS = 6;
 const SPEEDS = [0.75, 1, 1.1, 1.25, 1.5];
 const REPEATS = [1, 2, 3, 5, 6, 10];
-// current content (updated from the API by the reader component)
-let PAGES = [];
-let AYAHS = [];
+const PAGE_NUMS = Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1);
+const AYAHS = ALL_AYAHS;
+// translations / audio added from the admin panel (API), by "s:a"
+let EXTRA = {};
 let LANGS = {};
-function setContent(pages, settings) {
-  PAGES = pages;
-  AYAHS = pages.flatMap((p) => p.blocks.filter((b) => b.t === "ayah").map((b) => ({ ...b, page: p.page, juz: p.juz })));
+function setExtra(pages, settings) {
+  EXTRA = {};
+  (pages || []).forEach((p) => p.blocks.forEach((b) => { if (b.t === "ayah") EXTRA[`${b.s}:${b.a}`] = { tr: b.tr, audio: b.audio }; }));
   LANGS = Object.fromEntries(((settings && settings.languages) || []).map((l) => [l.code, l.name]));
 }
 const key = (s, a) => `${s}:${a}`;
-const strip = (t) => (t || "").replace(/[ً-ٰٟۖ-ۭـ]/g, "").replace(/[ٱأإآ]/g, "ا").replace(/ى/g, "ي");
+const strip = (t) => (t || "").replace(/[ً-ٰٟۖ-ۭـ]/g, "").replace(/[ٱأإآ]/g, "ا").replace(/ى/g, "ي");
 const pad = (n) => String(n).padStart(2, "0");
 const hms = (s) => `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(Math.floor(s % 60))}`;
 const ms = (s) => `${pad(Math.floor(s / 60))}:${pad(Math.floor(s % 60))}`;
+// Size Adjust 0–100 %  →  text scale (47 % = normal size)
+export const sizeScale = (pct) => 0.55 + (pct / 100) * 0.96;
 
+export const PREF_DEFAULTS = {
+  order: DEFAULT_ORDER, showTr: false, scrollMin: 60, showProgress: true, quickAction: true,
+  bookmarks: [], reading: null, speed: 1.1, repeat: 1, reciter: "Yasser-Al-Dosari",
+  qfont: "indopak", lines15: false, pageLines: true, screenOn: true, size: 47, sizeLock: false,
+  theme: "green", appearance: "light",
+};
 function loadPrefs() {
-  const base = {
-    order: DEFAULT_ORDER, showTr: false, font: 1, scrollMin: 60, showProgress: true, quickAction: true,
-    bookmarks: [], reading: null, speed: 1.1, repeat: 1, reciter: "Yasser-Al-Dosari",
-  };
   try {
     const p = JSON.parse(localStorage.getItem(PREF_KEY) || "null");
     if (p) {
       const order = Array.isArray(p.order) ? p.order.filter((x) => ACTION_LABEL[x]) : DEFAULT_ORDER;
       DEFAULT_ORDER.forEach((x) => { if (!order.includes(x)) order.push(x); });
-      return { ...base, ...p, order };
+      const out = { ...PREF_DEFAULTS, ...p, order };
+      if (p.size == null && typeof p.font === "number") out.size = Math.round(Math.min(100, Math.max(0, (p.font - 0.55) / 0.0096)));
+      if (!FONTS.some((f) => f.id === out.qfont)) out.qfont = "indopak";
+      return out;
     }
   } catch (e) {}
-  return base;
+  return { ...PREF_DEFAULTS };
 }
 
 function useIsDesktop() {
@@ -55,18 +68,45 @@ function useIsDesktop() {
   }, []);
   return d;
 }
+function useDarkSystem() {
+  const [d, setD] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const on = () => setD(mq.matches);
+    on();
+    mq.addEventListener ? mq.addEventListener("change", on) : mq.addListener(on);
+    return () => (mq.removeEventListener ? mq.removeEventListener("change", on) : mq.removeListener(on));
+  }, []);
+  return d;
+}
+
+// keep the screen on while reading (needs https; silently does nothing on http)
+function useWakeLock(on) {
+  useEffect(() => {
+    if (!on || typeof navigator === "undefined" || !navigator.wakeLock) return;
+    let lock = null, stop = false;
+    const get = async () => { try { if (document.visibilityState === "visible") lock = await navigator.wakeLock.request("screen"); } catch (e) {} };
+    const vis = () => { if (!stop && document.visibilityState === "visible") get(); };
+    get();
+    document.addEventListener("visibilitychange", vis);
+    return () => { stop = true; document.removeEventListener("visibilitychange", vis); try { lock && lock.release(); } catch (e) {} };
+  }, [on]);
+}
 
 /* ===================================================================== */
 export default function QuranReader() {
   const router = useRouter();
   const content = useQuranContent();
-  setContent(content.pages, content.settings);
+  setExtra(content.pages, content.settings);
   const isDesk = useIsDesktop();
+  const sysDark = useDarkSystem();
+  const [index, setIndex] = useState(null);
   const [prefs, setPrefs] = useState(null);
+  const [colorOk, setColorOk] = useState(true);
   const [chrome, setChrome] = useState(true);
   const [sel, setSel] = useState(null);           // {s,a,x,y} tapped ayah + popup position
   const [menu, setMenu] = useState(false);
-  const [screen, setScreen] = useState(null);     // index | customize | bookmarks | search
+  const [screen, setScreen] = useState(null);     // index | customize | bookmarks | search | settings
   const [indexTab, setIndexTab] = useState("juz");
   const [hifz, setHifz] = useState(false);
   const [revealed, setRevealed] = useState({});
@@ -80,9 +120,15 @@ export default function QuranReader() {
   const repeatLeft = useRef(1);
   const prefsRef = useRef(null);
   const idxRef = useRef(0);
+  const resumed = useRef(false);
   prefsRef.current = prefs;
 
-  useEffect(() => { setPrefs(loadPrefs()); }, []);
+  useEffect(() => {
+    setPrefs(loadPrefs());
+    setColorOk(supportsColorFont());
+    addStaticFonts();
+    loadIndex().then(setIndex).catch(() => setToast("Could not load the Quran. Check your connection."));
+  }, []);
   const save = useCallback((patch) => {
     setPrefs((p) => {
       const n = { ...p, ...(typeof patch === "function" ? patch(p) : patch) };
@@ -95,45 +141,103 @@ export default function QuranReader() {
     clearTimeout(toastT.current);
     toastT.current = setTimeout(() => setToast(""), 2400);
   };
+  useWakeLock(!!(prefs && prefs.screenOn));
 
-  /* ---------- track current page / surah in view ---------- */
+  // which font is really drawn: colour tajweed falls back to Uthmanic where colour fonts are not supported
+  const font = prefs ? (prefs.qfont === "tajweed" && !colorOk ? "uthmanic" : prefs.qfont) : "indopak";
+  const layout = fontInfo(font).layout;
+  const lines15 = !!(prefs && prefs.lines15 && !prefs.showTr);
+
+  /* ---------- track current page in view ---------- */
   useEffect(() => {
-    if (!prefs) return;
-    const els = [...document.querySelectorAll("[data-ayah]")];
+    if (!prefs || !index) return;
+    const els = [...document.querySelectorAll("section[data-page]")];
     const io = new IntersectionObserver(
       (entries) => {
         const vis = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
         if (!vis) return;
-        const [s, a] = vis.target.dataset.ayah.split(":").map(Number);
-        const ay = AYAHS.find((x) => x.s === s && x.a === a);
-        if (ay) {
-          setView({ page: ay.page, juz: ay.juz, s });
-          save({ lastPos: { s, a } });
-        }
+        const p = Number(vis.target.dataset.page);
+        const fk = vis.target.querySelector("[data-k]");
+        if (fk) { const [s, a] = fk.dataset.k.split(":").map(Number); firstKeyRef.current = { s, a }; }
+        setView({ page: p, juz: juzOfPage(index, layout, p), s: surahOfPage(index, layout, p) });
+        if (resumed.current) save({ lastPos: { page: p, layout } });
       },
-      { rootMargin: "-90px 0px -55% 0px" }
+      { rootMargin: "-100px 0px -70% 0px" }
     );
     els.forEach((e) => io.observe(e));
     return () => io.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!prefs, prefs?.showTr, isDesk, content.updatedAt]);
+  }, [!!prefs, !!index, layout, isDesk]);
 
   /* ---------- navigation ---------- */
-  const scrollToEl = (el) => {
+  const scrollToEl = (el, smooth = true) => {
     if (!el) return false;
     const y = el.getBoundingClientRect().top + window.scrollY - (isDesk ? 150 : 110);
-    window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+    window.scrollTo({ top: Math.max(0, y), behavior: smooth ? "smooth" : "auto" });
     return true;
+  };
+  // Jump to an element that may still be loading. Pages above it load and change height while we
+  // arrive, so keep re-aligning for a moment (stops as soon as the reader scrolls by hand).
+  const jumpT = useRef(null);
+  const settle = (find, smooth) => {
+    clearInterval(jumpT.current);
+    let n = 0, ok = 0, lastY = null;
+    const stopOnTouch = () => { clearInterval(jumpT.current); off(); };
+    const off = () => { window.removeEventListener("wheel", stopOnTouch); window.removeEventListener("touchstart", stopOnTouch); };
+    window.addEventListener("wheel", stopOnTouch, { passive: true });
+    window.addEventListener("touchstart", stopOnTouch, { passive: true });
+    jumpT.current = setInterval(() => {
+      n++;
+      const el = find();
+      if (el) {
+        const want = isDesk ? 150 : 110;
+        const top = el.getBoundingClientRect().top;
+        if (Math.abs(top - want) > 3) { scrollToEl(el, smooth && ok === 0 && lastY === null); lastY = window.scrollY; }
+        else ok++;
+      }
+      if (ok > 6 || n > 60) { clearInterval(jumpT.current); off(); }
+    }, 80);
+  };
+  const scrollToPage = (p) => {
+    const sec = () => document.querySelector(`section[data-page="${p}"]`);
+    scrollToEl(sec(), false);
+    settle(sec, false);
+  };
+  // scroll to a page, then (once it has loaded) to the ayah
+  const scrollToAyah = (s, a, smooth) => {
+    if (!index) return;
+    const p = pageOfAyah(index, layout, s, a);
+    scrollToEl(document.querySelector(`section[data-page="${p}"]`), false);
+    settle(() => { const el = document.querySelector(`[data-k="${key(s, a)}"]`); return el ? el.closest(".ml") || el : null; }, smooth);
   };
   const goTo = ({ s, a, page, juz }) => {
     setScreen(null);
     setMenu(false);
-    let el = null;
-    if (s) el = document.querySelector(`[data-ayah="${key(s, a || 1)}"]`) || document.querySelector(`[data-surah="${s}"]`);
-    else if (page) el = document.querySelector(`[data-page="${page}"]`);
-    else if (juz) el = document.querySelector(`[data-juz-start="${juz}"]`);
-    setTimeout(() => { if (!scrollToEl(el)) showToast("This part has not been added yet"); }, 60);
+    if (!index) return;
+    if (s) { scrollToAyah(s, a || 1, false); return; }
+    const p = page ? Math.min(TOTAL_PAGES, Math.max(1, page)) : index[layout].juz[(juz || 1) - 1];
+    setTimeout(() => scrollToPage(p), 30);
   };
+  // reopen where the reader stopped last time
+  useEffect(() => {
+    if (!prefs || !index || resumed.current) return;
+    const lp = prefs.lastPos;
+    const p = lp && lp.page ? lp.page : 1;
+    if (p > 1) setTimeout(() => { scrollToPage(p); setTimeout(() => (resumed.current = true), 1500); }, 50);
+    else resumed.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!prefs, !!index]);
+  // keep the same place when the font (and so the page layout) changes
+  const prevLayout = useRef(null);
+  const firstKeyRef = useRef(null);
+  useEffect(() => {
+    if (!index || !prefs) return;
+    if (prevLayout.current === null || prevLayout.current === layout) { prevLayout.current = layout; return; }
+    prevLayout.current = layout;
+    const k = firstKeyRef.current;
+    if (k) scrollToAyah(k.s, k.a, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout, !!index, !!prefs]);
 
   /* ---------- audio ---------- */
   const stopAudio = () => {
@@ -145,17 +249,18 @@ export default function QuranReader() {
     idxRef.current = idx;
     const ay = AYAHS[idx];
     if (!ay) { stopAudio(); return; }
-    if (!ay.audio) {
+    const src = EXTRA[key(ay.s, ay.a)]?.audio;
+    if (!src) {
       setAudio({ on: true, playing: false, idx, cur: 0, dur: 0 });
-      showToast("Recitation audio has not been added yet");
+      showToast("Recitation audio will be added in the next step");
       return;
     }
     const el = audioEl.current;
-    el.src = ay.audio;
+    el.src = src;
     el.playbackRate = prefsRef.current.speed;
     el.play().then(() => setAudio((x) => ({ ...x, on: true, playing: true, idx }))).catch(() => showToast("Could not play audio"));
     setAudio((x) => ({ ...x, on: true, idx }));
-    scrollToEl(document.querySelector(`[data-ayah="${key(ay.s, ay.a)}"]`));
+    scrollToAyah(ay.s, ay.a, true);
   };
   const startAudioAt = (s, a) => {
     const i = Math.max(0, AYAHS.findIndex((x) => x.s === s && x.a === a));
@@ -178,10 +283,15 @@ export default function QuranReader() {
     return () => { el.removeEventListener("timeupdate", t); el.removeEventListener("ended", end); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!prefs]);
+  const firstAyahInView = () => {
+    const el = document.querySelector(`section[data-page="${view.page}"] [data-k]`);
+    if (el) { const [s, a] = el.dataset.k.split(":").map(Number); return { s, a }; }
+    return { s: view.s, a: 1 };
+  };
   const togglePlay = () => {
     const el = audioEl.current;
-    if (!audio.on) { const p = prefs.lastPos || { s: 1, a: 1 }; startAudioAt(p.s, p.a); return; }
-    if (!el.src || !AYAHS[audio.idx]?.audio) { playIdx(audio.idx); return; }
+    if (!audio.on) { const p = firstAyahInView(); startAudioAt(p.s, p.a); return; }
+    if (!el.src || !EXTRA[key(AYAHS[audio.idx].s, AYAHS[audio.idx].a)]?.audio) { playIdx(audio.idx); return; }
     if (el.paused) { el.play(); setAudio((x) => ({ ...x, playing: true })); }
     else { el.pause(); setAudio((x) => ({ ...x, playing: false })); }
   };
@@ -190,7 +300,7 @@ export default function QuranReader() {
   useEffect(() => {
     if (!auto.on || !auto.playing || !prefs) return;
     let raf, last = performance.now(), acc = 0, secAcc = 0;
-    const page = document.querySelector("[data-page]");
+    const page = document.querySelector(`section[data-page="${view.page}"]`);
     const pageH = page ? page.offsetHeight : 900;
     const pxPerSec = (20 * pageH) / (prefs.scrollMin * 60); // ~20 pages per para
     const step = (now) => {
@@ -202,7 +312,7 @@ export default function QuranReader() {
       if (secAcc >= 1) { secAcc -= 1; setAuto((a) => ({ ...a, secs: a.secs + 1 })); }
       if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
         setAuto((a) => ({ ...a, playing: false }));
-        showToast("Reached the end of the added pages");
+        showToast("Reached the end of the Quran");
         return;
       }
       raf = requestAnimationFrame(step);
@@ -223,15 +333,18 @@ export default function QuranReader() {
     try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
     try { await navigator.clipboard.writeText(text); showToast("Copied"); } catch (e) { showToast("Sharing is not available here"); }
   };
-  const ayahShare = (s, a) => {
-    const ay = AYAHS.find((x) => x.s === s && x.a === a);
-    if (ay) shareText(`${ay.text}\n(${surah(s).en} ${s}:${a})`);
+  const ayahShare = async (s, a) => {
+    try {
+      const all = await loadSearch();
+      const row = all.find((x) => x[0] === s && x[1] === a);
+      if (row) shareText(`${row[2]}\n(${surah(s).en} ${s}:${a})`);
+    } catch (e) { showToast("Sharing is not available here"); }
   };
-  const hasTr = AYAHS.some((a) => a.tr && Object.values(a.tr).some(Boolean));
+  const hasTr = Object.values(EXTRA).some((x) => x.tr && Object.values(x.tr).some(Boolean));
 
   const run = (id) => {
     setMenu(false);
-    const pos = prefs.lastPos || { s: 1, a: 1 };
+    const pos = firstAyahInView();
     switch (id) {
       case "play": togglePlay(); break;
       case "bookmarks": setScreen("bookmarks"); break;
@@ -242,6 +355,7 @@ export default function QuranReader() {
         save((p) => ({ showTr: !p.showTr }));
         break;
       case "hifz": setHifz((h) => !h); setRevealed({}); showToast(hifz ? "Hifz mode off" : "Hifz mode: tap an ayah to reveal it"); break;
+      case "tajweed": save({ qfont: "tajweed" }); showToast(colorOk ? "Mushaf Tajweed font" : "Colour tajweed is not supported on this browser"); break;
       case "search": setScreen("search"); break;
       case "goto": setIndexTab("juz"); setScreen("index"); break;
       case "addbookmark": addBookmark(pos.s, pos.a); break;
@@ -249,6 +363,7 @@ export default function QuranReader() {
         if (prefs.reading) goTo(prefs.reading); else showToast("No reading bookmark yet");
         break;
       case "customize": setScreen("customize"); break;
+      case "settings": setScreen("settings"); break;
       case "exit": history.length > 1 ? router.back() : router.push("/"); break;
       default: showToast(`${ACTION_LABEL[id]} — coming soon`);
     }
@@ -260,14 +375,16 @@ export default function QuranReader() {
   const moreItems = [...prefs.order.slice(TOOLBAR_SLOTS)].reverse();
   const curS = surah(view.s);
   const playingKey = audio.on && AYAHS[audio.idx] ? key(AYAHS[audio.idx].s, AYAHS[audio.idx].a) : null;
-  const fontVar = { "--fs": prefs.font };
+  const selKey = sel ? key(sel.s, sel.a) : null;
+  const dark = prefs.appearance === "dark" || (prefs.appearance === "system" && sysDark);
+  const theme = prefs.theme;
 
   const onPageClick = (e) => {
-    const ayEl = e.target.closest("[data-ayah]");
+    const ayEl = e.target.closest("[data-k]");
     if (ayEl) {
-      const [s, a] = ayEl.dataset.ayah.split(":").map(Number);
+      const [s, a] = ayEl.dataset.k.split(":").map(Number);
       if (hifz && !revealed[key(s, a)]) { setRevealed((r) => ({ ...r, [key(s, a)]: true })); return; }
-      const r = (e.target.closest(".qr-ay") || ayEl).getBoundingClientRect();
+      const r = ayEl.getBoundingClientRect();
       setSel({ s, a, x: Math.min(Math.max(e.clientX, 120), window.innerWidth - 120), y: r.bottom });
       return;
     }
@@ -277,22 +394,22 @@ export default function QuranReader() {
 
   const ctx = {
     prefs, save, goTo, run, setScreen, indexTab, setIndexTab, showToast, addBookmark, setReading, ayahShare,
-    startAudioAt, setSel, sel, hifz, revealed, playingKey, AYAHS,
+    startAudioAt, setSel, sel, hifz, revealed, playingKey, index, layout, font, colorOk,
   };
 
+  const mode = { font, layout, lines15, showTr: !!prefs.showTr, scale: sizeScale(prefs.size), desk: isDesk };
   const pagesEl = (
-    <div className="qr-pages" style={fontVar} onClick={onPageClick}>
-      {PAGES.map((p, i) => (
-        <MushafPage key={p.page} page={p} first={i === 0 || PAGES[i - 1].juz !== p.juz} ctx={ctx} />
-      ))}
-      <div className="qr-end">
-        <p>More pages will appear here as they are added from the admin panel.</p>
-      </div>
+    <div className={`qr-pages f-${font}${lines15 ? " m15" : ""}${prefs.pageLines ? " ruled" : ""}`} style={{ "--fs": mode.scale }} onClick={onPageClick}>
+      {index ? PAGE_NUMS.map((p) => (
+        <PageView key={`${layout}-${p}`} p={p} mode={mode} bism={index.bism}
+          hl={[selKey, playingKey].filter(Boolean).join(",")} hifz={hifz} revealed={hifz ? revealed : null} />
+      )) : <div className="qr-loading">Loading the Quran…</div>}
+      {index && <div className="qr-end"><p>صَدَقَ ٱللَّهُ ٱلْعَظِيمُ</p></div>}
     </div>
   );
 
   return (
-    <div className={`qr-root${isDesk ? " desk" : ""}${chrome ? "" : " immersive"}`}>
+    <div className={`qr-root${isDesk ? " desk" : ""}${chrome ? "" : " immersive"}`} data-theme={theme} data-ui={dark ? "dark" : "light"}>
       <audio ref={audioEl} preload="none" />
 
       {isDesk ? (
@@ -342,11 +459,13 @@ export default function QuranReader() {
 
       {screen && (
         <div className={isDesk ? "qr-modal" : "qr-screen-wrap"} onClick={isDesk ? () => setScreen(null) : undefined}>
-          <div className="qr-screen" onClick={(e) => e.stopPropagation()}>
+          <div className={`qr-screen${screen === "settings" ? " wide" : ""}`} onClick={(e) => e.stopPropagation()}>
             {screen === "index" && <IndexScreen ctx={ctx} />}
             {screen === "customize" && <CustomizeScreen ctx={ctx} />}
             {screen === "bookmarks" && <BookmarksScreen ctx={ctx} />}
             {screen === "search" && <SearchScreen ctx={ctx} />}
+            {screen === "settings" && <SettingsScreen prefs={prefs} save={save} colorOk={colorOk} bism={index?.bism}
+              onBack={() => setScreen(null)} onSearch={() => setScreen("search")} />}
           </div>
         </div>
       )}
@@ -368,6 +487,176 @@ export default function QuranReader() {
 }
 
 /* ===================================================================== */
+/* One mushaf page. Loads its data (and page font) when it comes near the screen. */
+const PageView = memo(function PageView({ p, mode, bism, hl, hifz, revealed }) {
+  const ref = useRef(null);
+  const [data, setData] = useState(null);
+  const [fam, setFam] = useState(null);
+  const [want, setWant] = useState(false);
+  const { font, layout, lines15, showTr } = mode;
+
+  useEffect(() => {
+    const el = ref.current;
+    const io = new IntersectionObserver((en) => { if (en[0].isIntersecting) { setWant(true); io.disconnect(); } }, { rootMargin: "1600px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!want) return;
+    let stop = false;
+    const kind = font === "mushaf" ? "v1" : font === "tajweed" ? "v4" : null;
+    const fontReady = kind ? loadPageFont(kind, p)
+      : document.fonts.load(`20px "${font === "indopak" ? "NQ IndoPak" : "NQ Uthmanic"}"`).then(() => null);
+    Promise.all([loadPage(layout, p), fontReady]).then(([d, f]) => { if (!stop) { setFam(f); setData(d); } }).catch(() => {});
+    return () => { stop = true; };
+  }, [want, font, layout, p]);
+
+  const hlSet = hl ? hl.split(",") : [];
+  const cls = (k) => `${hlSet.includes(k) ? " hl" : ""}${hifz && !revealed[k] ? " hide" : ""}`;
+  const glyph = font === "mushaf" || font === "tajweed";
+  const wtext = (w) => (glyph ? w[2] : font === "indopak" ? w[4] : w[3]);
+  const bismText = font === "indopak" ? bism.i : bism.q;
+  const style = fam ? { fontFamily: `"${fam}"` } : undefined;
+
+  if (!data) {
+    return <section ref={ref} className={`qr-page ph${lines15 ? " m15" : ""}`} data-page={p}><div className="qr-pno">{p}</div></section>;
+  }
+
+  const Header = ({ s }) => (
+    <div className="qr-surah" data-surah={s}>
+      <span className="orn" aria-hidden="true">۞</span>
+      <h2 lang="ar">سُورَةُ {surah(s).ar}</h2>
+      <span className="orn" aria-hidden="true">۞</span>
+    </div>
+  );
+  const Bism = () => <div className="qr-bism" dir="rtl">{bismText}</div>;
+
+  if (lines15) {
+    return (
+      <section ref={ref} className={`qr-page m15${p <= 2 ? " opening" : ""}`} data-page={p}>
+        <FitLines p={p} fam={fam} font={font}>
+          {data.lines.map((l, i) => {
+            if (l.h) return <div key={i} className="ml mh"><Header s={l.h} /></div>;
+            if (l.b) return <div key={i} className="ml mb"><Bism /></div>;
+            return (
+              <div key={i} className="ml mw" dir="rtl" style={style}>
+                {l.w.map((w, j) => {
+                  const k = `${w[0]}:${w[1]}`;
+                  const end = w[glyph ? 3 : 5];
+                  return <span key={j} data-k={k} className={`qw${end ? " qe" : ""}${cls(k)}`}>{wtext(w)}</span>;
+                })}
+              </div>
+            );
+          })}
+        </FitLines>
+        <div className="qr-pno">{p}</div>
+      </section>
+    );
+  }
+
+  // flowing text: surah headers, bismillah, then ayahs one after another
+  const groups = [];
+  data.lines.forEach((l) => {
+    if (l.h) groups.push({ t: "h", s: l.h });
+    else if (l.b) groups.push({ t: "b" });
+    else l.w.forEach((w) => {
+      let g = groups[groups.length - 1];
+      if (!g || g.t !== "run") { g = { t: "run", ayahs: [] }; groups.push(g); }
+      const k = `${w[0]}:${w[1]}`;
+      let ay = g.ayahs[g.ayahs.length - 1];
+      if (!ay || ay.k !== k) { ay = { k, s: w[0], a: w[1], w: [] }; g.ayahs.push(ay); }
+      ay.w.push(w);
+    });
+  });
+  // the ayah-end marker always stays on the same line as the word before it
+  const Ayah = ({ ay }) => {
+    const ws = ay.w;
+    const endIdx = ws.findIndex((w) => w[glyph ? 3 : 5]);
+    const cut = endIdx < 0 ? ws.length : Math.max(0, endIdx - 1);
+    const head = ws.slice(0, cut);
+    const tail = ws.slice(cut);
+    const W = (w, j) => <span key={j} className={w[glyph ? 3 : 5] ? "qw qe" : "qw"}>{wtext(w)}</span>;
+    return (
+      <span className={`qa${cls(ay.k)}`} data-k={ay.k}>
+        {head.map((w, j) => [W(w, j), " "])}
+        {tail.length > 0 && <span className="qnw">{tail.map((w, j) => (j ? [" ", W(w, `t${j}`)] : W(w, `t${j}`)))}</span>}{" "}
+      </span>
+    );
+  };
+  return (
+    <section ref={ref} className="qr-page" data-page={p}>
+      {groups.map((g, i) => {
+        if (g.t === "h") return <Header key={i} s={g.s} />;
+        if (g.t === "b") return <Bism key={i} />;
+        if (showTr) {
+          return g.ayahs.map((ay) => {
+            const tr = EXTRA[ay.k]?.tr ? Object.entries(EXTRA[ay.k].tr).filter(([, v]) => v) : [];
+            return (
+              <div key={ay.k} className="qr-single">
+                <p className="qr-lines" dir="rtl" style={style}><Ayah ay={ay} /></p>
+                {tr.map(([lang, text]) => (
+                  <div key={lang} className="qr-tr"><span className="tag">{LANGS[lang] || lang}</span><p lang={lang}>{text}</p></div>
+                ))}
+              </div>
+            );
+          });
+        }
+        const center = p <= 2;
+        return (
+          <p key={i} className={`qr-lines${center ? " center" : ""}`} dir="rtl" style={style}>
+            {g.ayahs.map((ay) => <Ayah key={ay.k} ay={ay} />)}
+          </p>
+        );
+      })}
+      <div className="qr-pno">{p}</div>
+    </section>
+  );
+});
+
+// 15-line page: pick one font size so the widest line fits the page width, then justify each line
+function FitLines({ children, p, fam, font }) {
+  const ref = useRef(null);
+  const [fs, setFs] = useState(null);
+  const fit = useCallback(() => {
+    const box = ref.current;
+    if (!box) return;
+    const cs = getComputedStyle(box);
+    const W = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    if (!(W > 0)) return;
+    const BASE = 20;
+    box.style.setProperty("--mfs", `${BASE}px`);
+    box.classList.add("measure");
+    let widest = 0;
+    box.querySelectorAll(".ml.mw").forEach((l) => {
+      let sum = 0;
+      l.querySelectorAll(".qw").forEach((w) => (sum += w.getBoundingClientRect().width));
+      sum += (l.children.length - 1) * BASE * 0.12;
+      widest = Math.max(widest, sum);
+    });
+    box.classList.remove("measure");
+    const ref15 = font === "indopak" ? 0.94 : 0.985;
+    const size = widest ? Math.min(BASE * ((W * ref15) / widest), 64) : 28;
+    setFs(size);
+    box.style.setProperty("--mfs", `${size}px`);
+    // lines much shorter than the widest (end of a surah, first two pages) are centred, not stretched
+    box.querySelectorAll(".ml.mw").forEach((l) => {
+      let sum = 0;
+      l.querySelectorAll(".qw").forEach((w) => (sum += w.getBoundingClientRect().width));
+      l.classList.toggle("short", sum < W * (font === "mushaf" || font === "tajweed" ? 0.8 : 0.55));
+    });
+  }, [font]);
+  useLayoutEffect(() => { fit(); }, [fit, fam, p]);
+  useEffect(() => {
+    const box = ref.current;
+    if (!box || typeof ResizeObserver === "undefined") return;
+    let w = box.clientWidth;
+    const ro = new ResizeObserver(() => { if (box.clientWidth !== w) { w = box.clientWidth; fit(); } });
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [fit]);
+  return <div ref={ref} className="m15box" style={fs ? { "--mfs": `${fs}px` } : undefined}>{children}</div>;
+}
+
 function PrayerStrip() {
   const [settings] = usePrayerSettings();
   const [st, setSt] = useState(null);
@@ -410,71 +699,10 @@ function MobileHeader({ view, curS, chrome, onBack, onJuz, onSura }) {
   );
 }
 
-function MushafPage({ page, first, ctx }) {
-  const { prefs, sel, hifz, revealed, playingKey } = ctx;
-  // group blocks into paragraphs: surah header / bismillah / runs of ayahs
-  const groups = [];
-  page.blocks.forEach((b) => {
-    if (b.t === "ayah" && !(b.s === 1 && b.a === 1) && !prefs.showTr) {
-      const last = groups[groups.length - 1];
-      if (last && last.t === "run") last.items.push(b); else groups.push({ t: "run", items: [b] });
-    } else groups.push(b);
-  });
-  const ayahCls = (b) => {
-    const k = key(b.s, b.a);
-    return `qr-ay${sel && key(sel.s, sel.a) === k ? " hl" : ""}${playingKey === k ? " hl" : ""}${hifz && !revealed[k] ? " hide" : ""}`;
-  };
-  const Ay = ({ b }) => {
-    // keep the last word and the ayah marker together so the marker never wraps alone
-    const i = b.text.lastIndexOf(" ");
-    const head = i > 0 ? b.text.slice(0, i) : "";
-    const last = i > 0 ? b.text.slice(i + 1) : b.text;
-    return (
-      <span className="qr-ay-wrap" data-ayah={key(b.s, b.a)}>
-        {head && <span className={ayahCls(b)}>{head} </span>}
-        <span className="qr-nw"><span className={ayahCls(b)}>{last}</span>{"\u00A0"}<AyahMark n={b.a} /></span>{" "}
-      </span>
-    );
-  };
-  return (
-    <section className="qr-page" data-page={page.page} {...(first ? { "data-juz-start": page.juz } : {})}>
-      {groups.map((g, i) => {
-        if (g.t === "surah")
-          return (
-            <div key={i} className="qr-surah" data-surah={g.s}>
-              <span className="orn" aria-hidden="true">۞</span>
-              <h2 className="ar" dir="rtl">سُورَةُ {surah(g.s).ar}</h2>
-              <span className="orn" aria-hidden="true">۞</span>
-            </div>
-          );
-        if (g.t === "bismillah")
-          return <div key={i} className="qr-bism ar" dir="rtl">بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</div>;
-        if (g.t === "run")
-          return (
-            <p key={i} className="qr-lines ar" dir="rtl">
-              {g.items.map((b) => <Ay key={key(b.s, b.a)} b={b} />)}
-            </p>
-          );
-        // single ayah (Fatiha 1:1 centered, or translation mode)
-        const tr = g.tr ? Object.entries(g.tr).filter(([, v]) => v) : [];
-        return (
-          <div key={i} className={`qr-single${g.s === 1 && g.a === 1 && !prefs.showTr ? " center" : ""}`}>
-            <p className="qr-lines ar" dir="rtl"><Ay b={g} /></p>
-            {prefs.showTr && tr.map(([lang, text]) => (
-              <div key={lang} className="qr-tr"><span className="tag">{LANGS[lang] || lang}</span><p lang={lang}>{text}</p></div>
-            ))}
-          </div>
-        );
-      })}
-      <div className="qr-pno">{page.page}</div>
-    </section>
-  );
-}
-
 function AyahPopup({ ctx }) {
-  const { sel, setSel, startAudioAt, addBookmark, setReading, ayahShare, AYAHS } = ctx;
-  const ay = AYAHS.find((x) => x.s === sel.s && x.a === sel.a);
-  const tr = ay?.tr ? Object.entries(ay.tr).filter(([, v]) => v) : [];
+  const { sel, setSel, startAudioAt, addBookmark, setReading, ayahShare } = ctx;
+  const ex = EXTRA[key(sel.s, sel.a)];
+  const tr = ex?.tr ? Object.entries(ex.tr).filter(([, v]) => v) : [];
   const below = sel.y < window.innerHeight * 0.6;
   const style = { left: sel.x, top: below ? sel.y + 8 : undefined, bottom: below ? undefined : window.innerHeight - sel.y + 60 };
   return (
@@ -567,7 +795,6 @@ function IndexScreen({ ctx }) {
   const [pg, setPg] = useState("");
   const [gs, setGs] = useState("");
   const [ga, setGa] = useState("");
-  const juzHas = (j) => PAGES.some((p) => p.juz === j);
   return (
     <div className="qs">
       <ScreenHead onBack={() => setScreen(null)}>
@@ -591,7 +818,7 @@ function IndexScreen({ ctx }) {
                   {[2 * j - 1, 2 * j].map((h) => (
                     <div key={h} className="row">
                       {[`Hizb ${h}`, "1/4 Hizb", "1/2 Hizb", "3/4 Hizb"].map((l) => (
-                        <button key={l} onClick={() => (juzHas(j) ? goTo({ juz: j }) : showToast("This part has not been added yet"))}>{l}</button>
+                        <button key={l} onClick={() => goTo({ juz: j })}>{l}</button>
                       ))}
                     </div>
                   ))}
@@ -709,9 +936,18 @@ function BookmarksScreen({ ctx }) {
 function SearchScreen({ ctx }) {
   const { setScreen, goTo } = ctx;
   const [q, setQ] = useState("");
+  const [all, setAll] = useState(null);
+  useEffect(() => {
+    loadSearch().then((rows) => setAll(rows.map(([s, a, text]) => ({ s, a, text, plain: strip(text) })))).catch(() => setAll([]));
+  }, []);
   const term = q.trim();
   const sur = term ? SURAHS.filter((s) => s.en.toLowerCase().includes(term.toLowerCase()) || strip(s.ar).includes(strip(term)) || String(s.n) === term) : [];
-  const ays = term.length > 1 ? AYAHS.filter((a) => strip(a.text).includes(strip(term)) || Object.values(a.tr || {}).some((t) => (t || "").toLowerCase().includes(term.toLowerCase()))) : [];
+  const ref = term.match(/^(\d{1,3})\s*[:.\s]\s*(\d{1,3})$/);
+  const ays = useMemo(() => {
+    if (!all || term.length < 2) return [];
+    const t = strip(term), tl = term.toLowerCase();
+    return all.filter((a) => a.plain.includes(t) || Object.values(EXTRA[key(a.s, a.a)]?.tr || {}).some((x) => (x || "").toLowerCase().includes(tl)));
+  }, [all, term]);
   return (
     <div className="qs">
       <ScreenHead title="Search" onBack={() => setScreen(null)} />
@@ -721,13 +957,17 @@ function SearchScreen({ ctx }) {
         {sur.slice(0, 20).map((s) => (
           <button key={s.n} className="qs-sura" onClick={() => goTo({ s: s.n, a: 1 })}><span>{s.n} {s.en}</span><span className="ar" dir="rtl">{s.ar}</span></button>
         ))}
+        {ref && SURAHS[+ref[1] - 1] && +ref[2] >= 1 && +ref[2] <= SURAHS[+ref[1] - 1].ayahs && (
+          <button className="qs-sura" onClick={() => goTo({ s: +ref[1], a: +ref[2] })}><span>Go to {surah(+ref[1]).en} {ref[1]}:{ref[2]}</span><span className="ar" dir="rtl">{surah(+ref[1]).ar}</span></button>
+        )}
+        {!all && term.length > 1 && <p className="qs-empty">Loading…</p>}
         {ays.length > 0 && <div className="qs-cap">AYAHS ({ays.length})</div>}
-        {ays.map((a) => (
+        {ays.slice(0, 200).map((a) => (
           <button key={key(a.s, a.a)} className="qs-res" onClick={() => goTo(a)}>
             <span className="ar" dir="rtl">{a.text}</span><small>{surah(a.s).en} {a.s}:{a.a}</small>
           </button>
         ))}
-        {term && !sur.length && !ays.length && <p className="qs-empty">No results in the pages added so far.</p>}
+        {term && !sur.length && !ays.length && <p className="qs-empty">No results.</p>}
       </div>
     </div>
   );
@@ -740,7 +980,6 @@ function DesktopLayout({ ctx, view, curS, pagesEl, auto, setAuto, audio, hifz })
   const [tab, setTab] = useState("sura");
   const [q, setQ] = useState("");
   const list = SURAHS.filter((s) => !q || s.en.toLowerCase().includes(q.toLowerCase()) || strip(s.ar).includes(strip(q)) || String(s.n) === q);
-  const added = new Set(AYAHS.map((a) => a.s));
   const Btn = ({ id, label, on }) => (
     <button className={`qd-act${on ? " on" : ""}`} onClick={() => run(id)} title={label}><span className="i">{Ico[id]()}</span>{label}</button>
   );
@@ -757,14 +996,14 @@ function DesktopLayout({ ctx, view, curS, pagesEl, auto, setAuto, audio, hifz })
           <div className="qd-list">
             {tab === "sura"
               ? list.map((s) => (
-                  <button key={s.n} className={`qd-item${view.s === s.n ? " cur" : ""}${added.has(s.n) ? "" : " na"}`} onClick={() => goTo({ s: s.n, a: 1 })}>
+                  <button key={s.n} className={`qd-item${view.s === s.n ? " cur" : ""}`} onClick={() => goTo({ s: s.n, a: 1 })}>
                     <span className="n"><b>{s.n}</b></span>
-                    <span className="t"><b>{s.en}</b><small>{s.ayahs} Ayahs{added.has(s.n) ? "" : " · not added yet"}</small></span>
+                    <span className="t"><b>{s.en}</b><small>{s.ayahs} Ayahs</small></span>
                     <span className="ar" dir="rtl">{s.ar}</span>
                   </button>
                 ))
               : JUZ_NAMES.map((n, i) => (
-                  <button key={i} className={`qd-item${view.juz === i + 1 ? " cur" : ""}${PAGES.some((p) => p.juz === i + 1) ? "" : " na"}`} onClick={() => goTo({ juz: i + 1 })}>
+                  <button key={i} className={`qd-item${view.juz === i + 1 ? " cur" : ""}`} onClick={() => goTo({ juz: i + 1 })}>
                     <span className="n"><b>{i + 1}</b></span>
                     <span className="t"><b>Juz {i + 1}</b></span>
                     <span className="ar" dir="rtl">{n}</span>
@@ -787,10 +1026,13 @@ function DesktopLayout({ ctx, view, curS, pagesEl, auto, setAuto, audio, hifz })
               <Btn id="bookmarks" label="Bookmarks" />
               <Btn id="search" label="Search" />
               <Btn id="goto" label="Go to" />
-              <div className="qd-font">
-                <button aria-label="Smaller text" onClick={() => save((p) => ({ font: Math.max(0.7, +(p.font - 0.1).toFixed(2)) }))}>A−</button>
-                <button aria-label="Larger text" onClick={() => save((p) => ({ font: Math.min(1.6, +(p.font + 0.1).toFixed(2)) }))}>A+</button>
-              </div>
+              <Btn id="settings" label="Settings" />
+              {!prefs.lines15 && !prefs.sizeLock && (
+                <div className="qd-font">
+                  <button aria-label="Smaller text" onClick={() => save((p) => ({ size: Math.max(0, p.size - 5) }))}>A−</button>
+                  <button aria-label="Larger text" onClick={() => save((p) => ({ size: Math.min(100, p.size + 5) }))}>A+</button>
+                </div>
+              )}
             </div>
           </div>
           <div className="qd-book">{pagesEl}</div>
