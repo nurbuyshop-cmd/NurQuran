@@ -90,6 +90,7 @@ export const G = {
   mic: () => <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3" fill="#f6c32b" /><path d="M6 11a6 6 0 0012 0M12 17v4" stroke="#555" strokeWidth="1.6" fill="none" strokeLinecap="round" /></svg>,
   minus: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 12h12" /></svg>,
   plus: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 6v12M6 12h12" /></svg>,
+  restart: () => <svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="18.5" fill="#fff" stroke="#dfe6dc" strokeWidth="1.5" /><rect x="12" y="13" width="3" height="14" rx="1" fill="#2fae5c" /><path d="M28 13v14l-11-7z" fill="#2fae5c" /></svg>,
   trash: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13" /></svg>,
 };
 

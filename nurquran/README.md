@@ -13,6 +13,12 @@ Quran text and fonts:
 - Colour tajweed needs a browser with COLRv1 colour fonts (Chrome, Edge, Firefox, Android). Safari / iPhone show the Uthmanic font instead.
 - Screen Timeout (keep screen on) works only on https.
 
+Recitation (ayah by ayah): `lib/quran/reciters.js` lists 14 reciters (Sudais, Shuraim, Maher Al-Muaiqly, Yasser Ad-Dosari,
+Al-Budair, Al-Hudhaify, Alafasy, Al-Ghamdi, Ash-Shatri, Al-Ajamy, Al-Qatami, Abdul Basit, Al-Husary, Al-Minshawi). Audio streams from
+EveryAyah.com, one file per ayah: tap an ayah → play starts from that ayah (or the ⏮ button plays the surah from the start), then
+continues ayah after ayah through the whole Quran; the ayah being recited turns red and the screen follows it.
+The reciter is chosen on the home page (Quran settings) or in the reader's Settings / player gear button.
+
 - `npm install`
 - `npm run dev` — local development (http://localhost:3000)
 - `npm run build` — creates `out/`; upload the contents of `out/` to the nurquran.toptol.site folder

@@ -10,11 +10,12 @@ import {
 } from "@/lib/quran/mushaf";
 import { Ico, ACTION_LABEL, SHORT_LABEL, DEFAULT_ORDER, G } from "./QIcons";
 import SettingsScreen from "./SettingsScreen";
+import { usePrefs, sizeScale } from "@/lib/quran/prefs";
+import { RECITERS, reciter as reciterInfo, ayahAudioUrl } from "@/lib/quran/reciters";
 import { usePrayerSettings } from "@/lib/prayerStore";
 import { getPrayerState, fmtTime } from "@/lib/prayerEngine";
 import DesktopNav from "@/components/DesktopNav";
 
-const PREF_KEY = "quranReader";
 const TOOLBAR_SLOTS = 6;
 const SPEEDS = [0.75, 1, 1.1, 1.25, 1.5];
 const REPEATS = [1, 2, 3, 5, 6, 10];
@@ -33,30 +34,6 @@ const strip = (t) => (t || "").replace(/[ً-ٰٟۖ-ۭـ]/g, "").replace(/[ٱأإ
 const pad = (n) => String(n).padStart(2, "0");
 const hms = (s) => `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(Math.floor(s % 60))}`;
 const ms = (s) => `${pad(Math.floor(s / 60))}:${pad(Math.floor(s % 60))}`;
-// Size Adjust 0–100 %  →  text scale (47 % = normal size)
-export const sizeScale = (pct) => 0.55 + (pct / 100) * 0.96;
-
-export const PREF_DEFAULTS = {
-  order: DEFAULT_ORDER, showTr: false, scrollMin: 60, showProgress: true, quickAction: true,
-  bookmarks: [], reading: null, speed: 1.1, repeat: 1, reciter: "Yasser-Al-Dosari",
-  qfont: "indopak", lines15: false, pageLines: true, screenOn: true, size: 47, sizeLock: false,
-  theme: "green", appearance: "light",
-};
-function loadPrefs() {
-  try {
-    const p = JSON.parse(localStorage.getItem(PREF_KEY) || "null");
-    if (p) {
-      const order = Array.isArray(p.order) ? p.order.filter((x) => ACTION_LABEL[x]) : DEFAULT_ORDER;
-      DEFAULT_ORDER.forEach((x) => { if (!order.includes(x)) order.push(x); });
-      const out = { ...PREF_DEFAULTS, ...p, order };
-      if (p.size == null && typeof p.font === "number") out.size = Math.round(Math.min(100, Math.max(0, (p.font - 0.55) / 0.0096)));
-      if (!FONTS.some((f) => f.id === out.qfont)) out.qfont = "indopak";
-      return out;
-    }
-  } catch (e) {}
-  return { ...PREF_DEFAULTS };
-}
-
 function useIsDesktop() {
   const [d, setD] = useState(false);
   useEffect(() => {
@@ -101,7 +78,7 @@ export default function QuranReader() {
   const isDesk = useIsDesktop();
   const sysDark = useDarkSystem();
   const [index, setIndex] = useState(null);
-  const [prefs, setPrefs] = useState(null);
+  const [prefs, save] = usePrefs();
   const [colorOk, setColorOk] = useState(true);
   const [chrome, setChrome] = useState(true);
   const [sel, setSel] = useState(null);           // {s,a,x,y} tapped ayah + popup position
@@ -124,17 +101,9 @@ export default function QuranReader() {
   prefsRef.current = prefs;
 
   useEffect(() => {
-    setPrefs(loadPrefs());
     setColorOk(supportsColorFont());
     addStaticFonts();
     loadIndex().then(setIndex).catch(() => setToast("Could not load the Quran. Check your connection."));
-  }, []);
-  const save = useCallback((patch) => {
-    setPrefs((p) => {
-      const n = { ...p, ...(typeof patch === "function" ? patch(p) : patch) };
-      try { localStorage.setItem(PREF_KEY, JSON.stringify(n)); } catch (e) {}
-      return n;
-    });
   }, []);
   const showToast = (t) => {
     setToast(t);
@@ -239,29 +208,74 @@ export default function QuranReader() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout, !!index, !!prefs]);
 
-  /* ---------- audio ---------- */
+  /* ---------- audio (ayah by ayah) ---------- */
+  // src for one ayah in the chosen reciter's voice ("admin" = recordings uploaded in the admin panel)
+  const srcFor = (s, a) => {
+    const r = prefsRef.current?.reciter;
+    if (r === "admin") return EXTRA[key(s, a)]?.audio || null;
+    return ayahAudioUrl(r, s, a);
+  };
+  const bismRef = useRef(false);       // true while the bismillah before a surah is playing
+  const preloadEl = useRef(null);
   const stopAudio = () => {
     const el = audioEl.current;
-    if (el) { el.pause(); el.src = ""; }
+    if (el) { el.pause(); el.removeAttribute("src"); el.load(); }
+    bismRef.current = false;
     setAudio({ on: false, playing: false, idx: 0, cur: 0, dur: 0 });
   };
-  const playIdx = (idx) => {
-    idxRef.current = idx;
-    const ay = AYAHS[idx];
-    if (!ay) { stopAudio(); return; }
-    const src = EXTRA[key(ay.s, ay.a)]?.audio;
-    if (!src) {
-      setAudio({ on: true, playing: false, idx, cur: 0, dur: 0 });
-      showToast("Recitation audio will be added in the next step");
-      return;
+  // keep the ayah being recited on screen: scroll only when it is not already comfortably visible,
+  // so the reader may scroll away and the screen comes back when the next ayah starts
+  const followAyah = (s, a) => {
+    const els = document.querySelectorAll(`[data-k="${key(s, a)}"]`);
+    if (els.length) {
+      const first = els[0].getBoundingClientRect(), last = els[els.length - 1].getBoundingClientRect();
+      const top = isDesk ? 150 : 110, bottom = window.innerHeight - (isDesk ? 140 : 190);
+      const tall = last.bottom - first.top > bottom - top;
+      if (first.top >= top && (last.bottom <= bottom || (tall && first.top <= top + 120))) return;
     }
+    scrollToAyah(s, a, true);
+  };
+  const playSrc = (src, idx) => {
     const el = audioEl.current;
     el.src = src;
     el.playbackRate = prefsRef.current.speed;
-    el.play().then(() => setAudio((x) => ({ ...x, on: true, playing: true, idx }))).catch(() => showToast("Could not play audio"));
-    setAudio((x) => ({ ...x, on: true, idx }));
-    scrollToAyah(ay.s, ay.a, true);
+    el.play().then(() => setAudio((x) => ({ ...x, on: true, playing: true, idx }))).catch((e) => {
+      if (e && e.name === "NotAllowedError") { setAudio((x) => ({ ...x, on: true, playing: false, idx })); return; }
+      showToast("Could not play the recitation. Check your internet connection.");
+      setAudio((x) => ({ ...x, playing: false }));
+    });
   };
+  const playIdx = (idx, withBism = true) => {
+    idxRef.current = idx;
+    const ay = AYAHS[idx];
+    if (!ay) { stopAudio(); showToast("صَدَقَ ٱللَّهُ ٱلْعَظِيمُ — end of the Quran"); return; }
+    const src = srcFor(ay.s, ay.a);
+    setAudio((x) => ({ ...x, on: true, idx, cur: 0, dur: 0 }));
+    followAyah(ay.s, ay.a);
+    if (!src) { setAudio((x) => ({ ...x, playing: false })); showToast("No uploaded recording for this ayah. Choose a reciter in Settings."); return; }
+    // a new surah (not Al-Fatiha or At-Tawbah) starts with the bismillah
+    if (withBism && ay.a === 1 && ay.s !== 1 && ay.s !== 9 && prefsRef.current.bismillah && prefsRef.current.reciter !== "admin") {
+      bismRef.current = true;
+      playSrc(srcFor(1, 1), idx);
+    } else {
+      bismRef.current = false;
+      playSrc(src, idx);
+    }
+    // fetch the next ayah in the background so it starts without a gap
+    const nx = AYAHS[idx + 1];
+    const nsrc = nx && srcFor(nx.s, nx.a);
+    if (nsrc) {
+      if (!preloadEl.current) { preloadEl.current = new Audio(); preloadEl.current.preload = "auto"; }
+      preloadEl.current.src = nsrc;
+    }
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({ title: `${surah(ay.s).en} ${ay.s}:${ay.a}`, artist: reciterInfo(prefsRef.current.reciter).name, album: "Nur Quran" });
+      } catch (e) {}
+    }
+  };
+  const playRef = useRef(playIdx);
+  playRef.current = playIdx;
   const startAudioAt = (s, a) => {
     const i = Math.max(0, AYAHS.findIndex((x) => x.s === s && x.a === a));
     repeatLeft.current = prefs.repeat;
@@ -273,16 +287,38 @@ export default function QuranReader() {
     if (!el) return;
     const t = () => setAudio((x) => ({ ...x, cur: el.currentTime || 0, dur: el.duration || 0 }));
     const end = () => {
+      if (bismRef.current) {        // bismillah finished: now the ayah itself
+        bismRef.current = false;
+        const ay = AYAHS[idxRef.current];
+        playSrc(srcFor(ay.s, ay.a), idxRef.current);
+        return;
+      }
       repeatLeft.current -= 1;
       if (repeatLeft.current > 0) { el.currentTime = 0; el.play(); return; }
       repeatLeft.current = prefsRef.current ? prefsRef.current.repeat : 1;
-      playIdx(idxRef.current + 1);
+      playRef.current(idxRef.current + 1);
     };
+    const err = () => { if (el.getAttribute("src")) { showToast("Could not load the recitation. Check your internet connection."); setAudio((x) => ({ ...x, playing: false })); } };
     el.addEventListener("timeupdate", t);
     el.addEventListener("ended", end);
-    return () => { el.removeEventListener("timeupdate", t); el.removeEventListener("ended", end); };
+    el.addEventListener("error", err);
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.setActionHandler("nexttrack", () => playRef.current(idxRef.current + 1, true));
+        navigator.mediaSession.setActionHandler("previoustrack", () => playRef.current(Math.max(0, idxRef.current - 1), true));
+      } catch (e) {}
+    }
+    return () => { el.removeEventListener("timeupdate", t); el.removeEventListener("ended", end); el.removeEventListener("error", err); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!prefs]);
+  // another reciter chosen while playing: continue the same ayah in the new voice
+  const lastReciter = useRef(null);
+  useEffect(() => {
+    if (!prefs) return;
+    if (lastReciter.current && lastReciter.current !== prefs.reciter && audio.on) playIdx(audio.idx, false);
+    lastReciter.current = prefs.reciter;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs?.reciter]);
   const firstAyahInView = () => {
     const el = document.querySelector(`section[data-page="${view.page}"] [data-k]`);
     if (el) { const [s, a] = el.dataset.k.split(":").map(Number); return { s, a }; }
@@ -291,7 +327,7 @@ export default function QuranReader() {
   const togglePlay = () => {
     const el = audioEl.current;
     if (!audio.on) { const p = firstAyahInView(); startAudioAt(p.s, p.a); return; }
-    if (!el.src || !EXTRA[key(AYAHS[audio.idx].s, AYAHS[audio.idx].a)]?.audio) { playIdx(audio.idx); return; }
+    if (!el.getAttribute("src")) { playIdx(audio.idx); return; }
     if (el.paused) { el.play(); setAudio((x) => ({ ...x, playing: true })); }
     else { el.pause(); setAudio((x) => ({ ...x, playing: false })); }
   };
@@ -452,7 +488,8 @@ export default function QuranReader() {
       {auto.on && prefs.showProgress && <div className="qr-progress">Progress: {hms(auto.secs)}</div>}
 
       {audio.on && (
-        <AudioBar reciter={content.settings?.reciter || prefs.reciter} prefs={prefs} save={save} audio={audio} onToggle={togglePlay} onClose={stopAudio}
+        <AudioBar reciter={prefs.reciter === "admin" ? "Uploaded recordings" : reciterInfo(prefs.reciter).name} onSettings={() => setScreen("settings")}
+          now={AYAHS[audio.idx]} prefs={prefs} save={save} audio={audio} onToggle={togglePlay} onClose={stopAudio}
           onStar={() => { const ay = AYAHS[audio.idx]; ay && addBookmark(ay.s, ay.a); }}
           onTr={() => run("translations")} audioEl={audioEl} repeatLeft={repeatLeft} />
       )}
@@ -464,7 +501,8 @@ export default function QuranReader() {
             {screen === "customize" && <CustomizeScreen ctx={ctx} />}
             {screen === "bookmarks" && <BookmarksScreen ctx={ctx} />}
             {screen === "search" && <SearchScreen ctx={ctx} />}
-            {screen === "settings" && <SettingsScreen prefs={prefs} save={save} colorOk={colorOk} bism={index?.bism}
+            {screen === "settings" && <SettingsScreen prefs={prefs} save={save} colorOk={colorOk}
+              hasAdminAudio={Object.values(EXTRA).some((x) => x.audio)}
               onBack={() => setScreen(null)} onSearch={() => setScreen("search")} />}
           </div>
         </div>
@@ -714,7 +752,8 @@ function AyahPopup({ ctx }) {
   return (
     <div className="qr-pop" style={style} onClick={(e) => e.stopPropagation()}>
       <div className="btns">
-        <button title="Play from here" onClick={() => startAudioAt(sel.s, sel.a)}>{Ico.play()}</button>
+        <button title="Play from this ayah" onClick={() => startAudioAt(sel.s, sel.a)}>{Ico.play()}</button>
+        <button title="Play the surah from the beginning" className="from1" onClick={() => startAudioAt(sel.s, 1)}><G.restart /></button>
         <button title="Add bookmark" onClick={() => { addBookmark(sel.s, sel.a); setSel(null); }}>{Ico.addbookmark()}</button>
         <button title="Reading bookmark" onClick={() => { setReading(sel.s, sel.a); setSel(null); }}>{Ico.readingbookmark()}</button>
         <button title="Share" onClick={() => ayahShare(sel.s, sel.a)}>{Ico.share()}</button>
@@ -747,14 +786,14 @@ function AutoBar({ prefs, save, auto, setAuto, onOptions }) {
   );
 }
 
-function AudioBar({ reciter, prefs, save, audio, onToggle, onClose, onStar, onTr, audioEl, repeatLeft }) {
+function AudioBar({ reciter, onSettings, now, prefs, save, audio, onToggle, onClose, onStar, onTr, audioEl, repeatLeft }) {
   const left = Math.max(0, (audio.dur || 0) - (audio.cur || 0));
   const pct = audio.dur ? (audio.cur / audio.dur) * 100 : 0;
   return (
     <div className="qr-audiobar">
       <div className="top">
-        <button aria-label="Recitation settings"><G.gear /></button>
-        <span className="name">{reciter}</span>
+        <button aria-label="Choose reciter" onClick={onSettings}><G.gear /></button>
+        <span className="name">{reciter}{now ? <small> · {surah(now.s).en} {now.s}:{now.a}</small> : null}</span>
         <button aria-label="Close player" onClick={onClose}><G.xc /></button>
       </div>
       <div className="seek">

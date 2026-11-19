@@ -1,8 +1,10 @@
 "use client";
 // Quran settings — mobile layout follows the reference app screenshot (Quran Font, toggles, Size Adjust, Themes).
 import { useEffect, useState } from "react";
-import { FONTS, loadPage, loadPageFont } from "@/lib/quran/mushaf";
+import { FONTS, loadPage, loadPageFont, addStaticFonts } from "@/lib/quran/mushaf";
+import { RECITERS, ayahAudioUrl } from "@/lib/quran/reciters";
 import { G } from "./QIcons";
+import "./settings.css";
 
 const THEMES = [
   { id: "green", label: "Green" },
@@ -66,22 +68,68 @@ function ThemeThumb({ id }) {
   );
 }
 
-export default function SettingsScreen({ prefs, save, colorOk, onBack, onSearch }) {
+// short listen before choosing: Al-Fatiha 1:2 in that reciter's voice
+let sampleAudio = null;
+function playSample(id, setPlaying) {
+  try {
+    if (!sampleAudio) sampleAudio = new Audio();
+    if (sampleAudio.dataset.id === id && !sampleAudio.paused) { sampleAudio.pause(); setPlaying(null); return; }
+    sampleAudio.dataset.id = id;
+    sampleAudio.src = ayahAudioUrl(id, 1, 2);
+    sampleAudio.onended = () => setPlaying(null);
+    sampleAudio.play().then(() => setPlaying(id)).catch(() => setPlaying(null));
+  } catch (e) {}
+}
+
+function ReciterCard({ prefs, save, hasAdminAudio }) {
+  const [playing, setPlaying] = useState(null);
+  useEffect(() => () => { try { sampleAudio && sampleAudio.pause(); } catch (e) {} }, []);
+  const list = hasAdminAudio ? [...RECITERS, { id: "admin", name: "Uploaded recordings", ar: "", place: "Added from the admin panel" }] : RECITERS;
+  return (
+    <section className="qset-card rec">
+      <h3><span>Reciter</span></h3>
+      <p className="qset-hint">The whole Quran plays in the voice you choose. Tap an ayah and press play to start from that ayah.</p>
+      <div className="qset-rec">
+        {list.map((r) => {
+          const on = prefs.reciter === r.id;
+          return (
+            <div key={r.id} role="button" tabIndex={0} className={`qset-rc${on ? " on" : ""}`}
+              onClick={() => save({ reciter: r.id })} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && save({ reciter: r.id })}>
+              <span className="av" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21M8.5 21h7" /></svg>
+              </span>
+              <span className="tx">
+                <b>{r.name}</b>
+                {r.ar && <span className="ar" dir="rtl">{r.ar}</span>}
+                <small>{r.place}</small>
+              </span>
+              {r.id !== "admin" && (
+                <button className="pl" aria-label={`Listen to ${r.name}`} onClick={(e) => { e.stopPropagation(); playSample(r.id, setPlaying); }}>
+                  {playing === r.id
+                    ? <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                    : <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l11 7-11 7z" /></svg>}
+                </button>
+              )}
+              <span className="ck" aria-hidden="true" />
+            </div>
+          );
+        })}
+      </div>
+      <div className="qset-row">
+        <span>Recite Bismillah before each surah</span>
+        <Toggle label="" on={prefs.bismillah} onChange={(v) => save({ bismillah: v })} />
+      </div>
+    </section>
+  );
+}
+
+// The cards on their own — used in the reader's Settings screen and on the home page
+export function SettingsCards({ prefs, save, colorOk, hasAdminAudio }) {
   const samples = useSamples();
+  useEffect(() => { addStaticFonts(); }, []);
   const sizeOff = prefs.sizeLock || prefs.lines15;
   const sampleFam = prefs.qfont === "indopak" ? "NQ IndoPak" : "NQ Uthmanic";
   return (
-    <div className="qset">
-      <header className="qset-head">
-        <button className="b" onClick={onBack} aria-label="Back"><G.back /><span>Quran</span></button>
-        <div className="r">
-          <button aria-label="Search" onClick={onSearch}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L21 21" /><path d="M10.5 7.5v6M7.5 10.5h6" strokeWidth="1.6" /></svg>
-          </button>
-          <span className="gear" aria-hidden="true"><G.gear /></span>
-        </div>
-      </header>
-
       <div className="qset-body">
         <section className="qset-card">
           <h3><span>Quran Font</span></h3>
@@ -142,7 +190,25 @@ export default function SettingsScreen({ prefs, save, colorOk, onBack, onSearch 
             </select>
           </label>
         </section>
+
+        <ReciterCard prefs={prefs} save={save} hasAdminAudio={hasAdminAudio} />
       </div>
+  );
+}
+
+export default function SettingsScreen({ prefs, save, colorOk, hasAdminAudio, onBack, onSearch }) {
+  return (
+    <div className="qset">
+      <header className="qset-head">
+        <button className="b" onClick={onBack} aria-label="Back"><G.back /><span>Quran</span></button>
+        <div className="r">
+          <button aria-label="Search" onClick={onSearch}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L21 21" /><path d="M10.5 7.5v6M7.5 10.5h6" strokeWidth="1.6" /></svg>
+          </button>
+          <span className="gear" aria-hidden="true"><G.gear /></span>
+        </div>
+      </header>
+      <SettingsCards prefs={prefs} save={save} colorOk={colorOk} hasAdminAudio={hasAdminAudio} />
     </div>
   );
 }
