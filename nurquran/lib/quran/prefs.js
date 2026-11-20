@@ -48,6 +48,7 @@ export function usePrefs() {
     setPrefs((p) => {
       const n = { ...p, ...(typeof patch === "function" ? patch(p) : patch) };
       try { localStorage.setItem(PREF_KEY, JSON.stringify(n)); } catch (e) {}
+      setTimeout(() => { try { window.dispatchEvent(new Event("nq-font")); } catch (e) {} }, 0);
       return n;
     });
   }, []);

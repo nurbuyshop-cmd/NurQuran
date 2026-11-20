@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { loadSettings } from "@/lib/prayerStore";
 import { getTimes, nowIn, fmtTime } from "@/lib/prayerEngine";
 import { playSound, stopSound } from "@/lib/sounds";
+import { useSiteConfig } from "@/lib/siteImages";
 
 export default function AlarmRunner() {
   const [alert, setAlert] = useState(null);
+  useSiteConfig(); // loads adhan recordings uploaded in the admin panel
   useEffect(() => {
     const fired = new Set();
     const check = () => {

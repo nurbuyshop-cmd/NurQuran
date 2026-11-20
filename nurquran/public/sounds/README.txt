@@ -1,4 +1,8 @@
-Put adhan recordings here (MP3), named by sound id:
-mishari.mp3, mishari_full.mp3, madinah.mp3, madinah_full.mp3, makkah.mp3, makkah_full.mp3,
-istanbul.mp3, istanbul_full.mp3, aqsa.mp3, aqsa_full.mp3
-Use only recordings you have the right to use. Until a file is added, a soft chime plays instead.
+Built-in adhan recordings (from the free "adhan-mp3" collection on GitHub, Kiwifu/adhan-mp3 — free for Islamic apps):
+mishari / mishari_full   = Mishary Rashid Alafasy (Kuwait)
+madinah / madinah_full   = Adhan Al-Haram Al-Madani (Madinah)
+makkah / makkah_full     = Ali Ibn Ahmad Mala (Al-Haram, Makkah)
+istanbul / istanbul_full = Anuar Duman (Turkey)
+aqsa / aqsa_full         = Najee Qazaz (Al-Aqsa, Jerusalem)
+The short versions are the opening takbirs of the same recording. To use a different recording, upload it in the
+admin panel → Adhan Sounds (that file is used instead of these).

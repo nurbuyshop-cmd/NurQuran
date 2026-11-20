@@ -39,10 +39,38 @@ body:has(.qr-root[data-theme=night]){background:#0f1311}
 .qr-page.ph{min-height:calc(var(--lh) * 15.6)}
 .qr-page.ph.m15{min-height:calc(100vw * 1.45)}
 .qr-loading{padding:80px 20px;text-align:center;color:var(--muted)}
-.qr-surah{display:flex;align-items:center;justify-content:center;gap:12px;min-height:var(--lh);border:1.5px solid var(--frame);border-radius:6px;margin:4px 0;
-  background:var(--head);color:var(--red)}
-.qr-surah h2{direction:rtl;font-family:var(--font-quran);font-size:1.05em;font-weight:700;color:var(--red);line-height:1.2}
-.qr-surah .orn{font-size:.7em;opacity:.8}
+/* surah banner — printed-Mushaf style: patterned band, two medallions and a central cartouche */
+.qr-surah{--orn:#b8892b;direction:rtl;position:relative;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.35em;
+  min-height:var(--lh);margin:6px 0;padding:.14em .28em;border-radius:.3em;color:var(--red);
+  border:2px solid var(--orn);
+  background:
+    radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--orn) 22%,transparent) 0 1.2px,transparent 1.6px) 0 0/9px 9px,
+    linear-gradient(var(--head),var(--head));
+  box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3px color-mix(in srgb,var(--orn) 70%,transparent),0 1px 0 color-mix(in srgb,var(--orn) 25%,transparent)}
+.qr-surah::before,.qr-surah::after{content:"";position:absolute;top:50%;width:.42em;height:.42em;background:var(--orn);transform:translateY(-50%) rotate(45deg)}
+.qr-surah::before{right:-.24em}
+.qr-surah::after{left:-.24em}
+.qr-surah .qs-mid{position:relative;display:flex;align-items:center;justify-content:center;gap:.25em;min-width:0;height:100%;
+  padding:0 .9em;background:var(--paper);border:1.5px solid var(--orn);
+  clip-path:polygon(.7em 0,calc(100% - .7em) 0,100% 50%,calc(100% - .7em) 100%,.7em 100%,0 50%);
+  box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3px color-mix(in srgb,var(--orn) 45%,transparent)}
+.qr-surah .qs-mid::before,.qr-surah .qs-mid::after{content:"";position:absolute;top:0;bottom:0;width:.72em;background:var(--orn);opacity:.9}
+.qr-surah .qs-mid::before{right:0;clip-path:polygon(0 0,100% 50%,0 100%,0 calc(100% - 1.5px),calc(100% - 2px) 50%,0 1.5px)}
+.qr-surah .qs-mid::after{left:0;clip-path:polygon(100% 0,0 50%,100% 100%,100% calc(100% - 1.5px),2px 50%,100% 1.5px)}
+.qr-surah h2{direction:rtl;font-family:var(--font-quran);font-size:1.02em;font-weight:700;color:var(--red);line-height:1.25;white-space:nowrap;
+  padding:.04em .2em 0;text-shadow:0 1px 0 color-mix(in srgb,var(--paper) 70%,transparent)}
+.qr-surah .qs-fl{width:1.7em;height:.7em;flex:none;color:var(--orn)}
+.qr-surah .qs-fl:not(.flip){transform:scaleX(-1)}
+.qr-surah .qs-med{display:flex;flex-direction:column;align-items:center;justify-content:center;width:2.3em;height:2.3em;max-height:calc(var(--lh) * .92);aspect-ratio:1;
+  background:var(--paper);color:var(--mark);border:1.5px solid var(--orn);font-family:'Roboto',sans-serif;line-height:1.05;
+  clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%);
+  box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3px color-mix(in srgb,var(--orn) 55%,transparent)}
+.qr-surah .qs-med small{font-family:'Amiri',serif;font-size:.34em;color:var(--muted);line-height:1.15}
+.qr-surah .qs-med b{font-family:'Amiri',serif;font-size:.6em;font-weight:700;line-height:1.05}
+.qr-root[data-theme=brown] .qr-surah{--orn:#9a6b2f}
+.qr-root[data-theme=grey] .qr-surah{--orn:#7d8790}
+.qr-root[data-theme=night] .qr-surah{--orn:#c9a75a}
+@media (max-width:420px){.qr-surah .qs-fl{width:1.2em}.qr-surah .qs-mid{padding:0 .75em}}
 .qr-bism{text-align:center;min-height:var(--lh);line-height:var(--lh);color:var(--ink)}
 .qr-lines{line-height:var(--lh);text-align:justify;text-align-last:center;margin:0;word-spacing:.06em}
 .qr-pages.ruled .qr-lines{background-image:linear-gradient(to bottom,transparent calc(var(--lh) - 1px),var(--rule) calc(var(--lh) - 1px));background-size:100% var(--lh)}
@@ -72,6 +100,7 @@ body:has(.qr-root[data-theme=night]){background:#0f1311}
 .m15box.measure .ml.mw{justify-content:flex-start}
 .ml.mh,.ml.mb{justify-content:center}
 .ml.mh .qr-surah{width:100%;margin:0;min-height:calc(var(--mfs) * 1.75);font-size:calc(var(--mfs) * .78)}
+.ml.mh .qr-surah .qs-med{height:calc(var(--mfs) * 1.55);width:calc(var(--mfs) * 1.55);max-height:none}
 .ml.mh .qr-surah h2{line-height:1.6}
 .ml.mb .qr-bism{min-height:0;line-height:1.9;border:0;font-size:var(--mfs)}
 .qr-page.m15 .qr-pno{font-size:15px}

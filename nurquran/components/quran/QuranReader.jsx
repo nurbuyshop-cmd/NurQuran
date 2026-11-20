@@ -72,6 +72,20 @@ function useWakeLock(on) {
 }
 
 /* ===================================================================== */
+const arDigits = (n) => toArabicDigits(n);
+// small arabesque flourish beside the surah name
+function SurahFlourish({ flip }) {
+  return (
+    <svg className={`qs-fl${flip ? " flip" : ""}`} viewBox="0 0 60 24" aria-hidden="true">
+      <path d="M2 12h14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M16 12c4-7 10-7 12 0-2 7-8 7-12 0z" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M28 12l5-4.5 5 4.5-5 4.5z" fill="currentColor" />
+      <path d="M38 12c3-5 8-5 10 0-2 5-7 5-10 0z" fill="none" stroke="currentColor" strokeWidth="1.1" />
+      <circle cx="54" cy="12" r="2" fill="currentColor" />
+    </svg>
+  );
+}
+
 export default function QuranReader() {
   const router = useRouter();
   const content = useQuranContent();
@@ -628,11 +642,16 @@ const PageView = memo(function PageView({ p, mode, bism, hl, hifz, revealed }) {
     return <section ref={ref} className={`qr-page ph${lines15 ? " m15" : ""}`} data-page={p}><div className="qr-pno">{p}</div></section>;
   }
 
+  // printed-Mushaf style surah banner: ayah count on the right, surah name in an ornamented cartouche, surah number on the left
   const Header = ({ s }) => (
     <div className="qr-surah" data-surah={s}>
-      <span className="orn" aria-hidden="true">۞</span>
-      <h2 lang="ar">سُورَةُ {surah(s).ar}</h2>
-      <span className="orn" aria-hidden="true">۞</span>
+      <span className="qs-med" aria-label={`${surah(s).ayahs} ayahs`}><small>آياتها</small><b>{arDigits(surah(s).ayahs)}</b></span>
+      <span className="qs-mid">
+        <SurahFlourish />
+        <h2 lang="ar">سُورَةُ {surah(s).ar}</h2>
+        <SurahFlourish flip />
+      </span>
+      <span className="qs-med" aria-label={`Surah ${s}`}><small>ترتيبها</small><b>{arDigits(s)}</b></span>
     </div>
   );
   const Bism = () => <div className="qr-bism" dir="rtl">{bismText}</div>;

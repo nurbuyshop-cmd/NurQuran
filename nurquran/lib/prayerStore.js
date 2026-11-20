@@ -32,6 +32,8 @@ export const SOUNDS = [
   { id: "aqsa_full", name: "Alaqsa Masjid (Full Adhan)", icon: "mosque", premium: true },
 ];
 export const soundById = (id) => SOUNDS.find((s) => s.id === id) || SOUNDS[0];
+// which adhans need Premium: the admin panel's list if it has one, otherwise the built-in marks above
+export const isPremiumSound = (s, adhanCfg) => (adhanCfg && Array.isArray(adhanCfg.premium) ? adhanCfg.premium.includes(s.id) : !!s.premium);
 
 export function defaultSettings() {
   let tz = "Asia/Dhaka";
@@ -45,7 +47,8 @@ export function defaultSettings() {
     alarmMode: false,
     volume: 90,
     advanced: false,
-    alarms: { Fajr: "mishari", Sunrise: "none", Zohr: "none", Asr: "default", Maghrib: "none", Isha: "none" },
+    // new visitors start with no alarm sound on any prayer; they turn on the adhan they want
+    alarms: { Fajr: "none", Sunrise: "none", Zohr: "none", Asr: "none", Maghrib: "none", Isha: "none" },
     custom: [],
   };
 }
