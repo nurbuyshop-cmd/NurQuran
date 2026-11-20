@@ -42,7 +42,7 @@ export default function TafsirSection({ prefs, save }) {
           </button>
         ))}
       </div>
-      <p className="tfs-hint">Tap a tafsir to read it with every ayah of the Quran. In the Quran reader, tap an ayah → Tafsir.</p>
+      <p className="tfs-hint">Tap a tafsir to read it with every ayah of the Quran. In the Quran reader, tap any ayah to see its meaning and tafsir.</p>
     </section>
   );
 }

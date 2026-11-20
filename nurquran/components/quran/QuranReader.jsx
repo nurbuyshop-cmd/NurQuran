@@ -13,6 +13,7 @@ import SettingsScreen from "./SettingsScreen";
 import { usePrefs, sizeScale } from "@/lib/quran/prefs";
 import { RECITERS, reciter as reciterInfo, ayahAudioUrl, effectiveReciter } from "@/lib/quran/reciters";
 import { useSiteConfig } from "@/lib/siteImages";
+import { tafsirSetup, chosenTafsir, tafsirById, langById, loadAyahTafsir, loadMeanings, cleanTafsirHtml } from "@/lib/quran/tafsir";
 import { usePrayerSettings } from "@/lib/prayerStore";
 import { getPrayerState, fmtTime } from "@/lib/prayerEngine";
 import DesktopNav from "@/components/DesktopNav";
@@ -828,26 +829,75 @@ function MobileHeader({ view, curS, chrome, onBack, onJuz, onSura, arabic, pageN
 }
 
 function AyahPopup({ ctx }) {
-  const { sel, setSel, startAudioAt, addBookmark, setReading, ayahShare } = ctx;
+  const { sel, setSel, startAudioAt, addBookmark, setReading, ayahShare, prefs, router } = ctx;
+  const cfg = useSiteConfig();
+  const setup = tafsirSetup(cfg);
+  const { lang, book } = chosenTafsir(prefs, setup);
+  const L = langById(lang);
+  const b = tafsirById(book);
   const ex = EXTRA[key(sel.s, sel.a)];
-  const tr = ex?.tr ? Object.entries(ex.tr).filter(([, v]) => v) : [];
-  const below = sel.y < window.innerHeight * 0.6;
-  const style = { left: sel.x, top: below ? sel.y + 8 : undefined, bottom: below ? undefined : window.innerHeight - sel.y + 60 };
+  // meaning: the admin panel's translation in this language if there is one, otherwise the open translation
+  const own = ex?.tr && ex.tr[lang];
+  const [meaning, setMeaning] = useState(own || null);
+  const [taf, setTaf] = useState({ loading: !!b, html: "", from: 0, err: "" });
+  useEffect(() => {
+    let live = true;
+    setMeaning(own || null);
+    if (!own && L.tr) loadMeanings(lang, sel.s).then((m) => live && setMeaning(m ? m[sel.a] : null)).catch(() => {});
+    if (b) {
+      setTaf({ loading: true, html: "", from: 0, err: "" });
+      loadAyahTafsir(b.id, sel.s, sel.a)
+        .then((t) => live && setTaf({ loading: false, html: t ? cleanTafsirHtml(t.html) : "", from: t ? t.from : 0, err: "" }))
+        .catch((e) => live && setTaf({ loading: false, html: "", from: 0, err: e.message }));
+    }
+    return () => { live = false; };
+  }, [sel.s, sel.a, lang, book]); // eslint-disable-line react-hooks/exhaustive-deps
+  const others = ex?.tr ? Object.entries(ex.tr).filter(([l, v]) => v && l !== lang) : [];
+  const below = sel.y < window.innerHeight * 0.5;
+  const w = Math.min(380, window.innerWidth - 16);
+  const left = Math.min(Math.max(sel.x, w / 2 + 8), window.innerWidth - w / 2 - 8);
+  const style = { left, width: w, top: below ? sel.y + 8 : undefined, bottom: below ? undefined : window.innerHeight - sel.y + 60,
+    maxHeight: Math.max(240, below ? window.innerHeight - sel.y - 24 : sel.y - 70) };
+  const dir = L.rtl ? "rtl" : "ltr";
   return (
-    <div className="qr-pop" style={style} onClick={(e) => e.stopPropagation()}>
+    <div className="qr-pop wide" style={style} onClick={(e) => e.stopPropagation()}>
       <div className="btns">
         <button title="Play from this ayah" onClick={() => startAudioAt(sel.s, sel.a)}>{Ico.play()}</button>
         <button title="Play the surah from the beginning" className="from1" onClick={() => startAudioAt(sel.s, 1)}><G.restart /></button>
         <button title="Add bookmark" onClick={() => { addBookmark(sel.s, sel.a); setSel(null); }}>{Ico.addbookmark()}</button>
         <button title="Reading bookmark" onClick={() => { setReading(sel.s, sel.a); setSel(null); }}>{Ico.readingbookmark()}</button>
         <button title="Share" onClick={() => ayahShare(sel.s, sel.a)}>{Ico.share()}</button>
-        <button title="Tafsir" className="tfs" onClick={() => ctx.router.push(`/tafsir?s=${sel.s}&a=${sel.a}`)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" strokeLinecap="round"><path d="M12 6C10 4.5 7 4 3.5 4.5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5v-13C17 4 14 4.5 12 6zm0 0v13" /></svg>
-        </button>
         <button title="Close" className="c" onClick={() => setSel(null)}><G.chevU /></button>
       </div>
-      <div className="ref">{surah(sel.s).en} {sel.s}:{sel.a}</div>
-      {tr.length ? tr.map(([l, t]) => <p key={l} className="t" lang={l}>{t}</p>) : <p className="t muted">Translation has not been added yet.</p>}
+      <div className="pop-body">
+        <div className="ref">{surah(sel.s).en} {sel.s}:{sel.a}</div>
+        {(meaning || own) && (
+          <section className="pop-sec">
+            <h5>Meaning <small>{L.name}</small></h5>
+            <p className="t" lang={lang} dir={dir}>{meaning}</p>
+          </section>
+        )}
+        {others.map(([l, t]) => <p key={l} className="t sub" lang={l} dir="auto">{t}</p>)}
+        {b && (
+          <section className="pop-sec">
+            <h5>Tafsir <small dir="auto">{b.name}</small></h5>
+            {taf.loading ? <div className="pop-load"><i /><i /><i /></div>
+              : taf.err ? <p className="t muted">{taf.err}</p>
+              : taf.html ? (
+                <>
+                  {taf.from && taf.from !== sel.a ? <p className="pop-note">Tafsir of ayah {taf.from} onward (explained together)</p> : null}
+                  <div className={`pop-taf lang-${lang}`} lang={lang} dir={dir} dangerouslySetInnerHTML={{ __html: taf.html }} />
+                </>
+              ) : <p className="t muted">No separate tafsir for this ayah in this book.</p>}
+          </section>
+        )}
+        {!b && !meaning && <p className="t muted">Translation has not been added yet.</p>}
+      </div>
+      {b && (
+        <div className="pop-foot">
+          <button onClick={() => router.push(`/tafsir?t=${b.id}&s=${sel.s}&a=${sel.a}`)}>Read full tafsir ›</button>
+        </div>
+      )}
     </div>
   );
 }

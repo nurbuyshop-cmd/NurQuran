@@ -135,6 +135,29 @@ body:has(.qr-root[data-theme=night]){background:#0f1311}
 .qr-pop .ref{text-align:center;font-weight:700;font-size:13px;padding:8px 8px 2px}
 .qr-pop .t{padding:4px 12px 14px;font-size:18px;line-height:1.4;text-align:center;font-family:'Hind Siliguri','Roboto',sans-serif}
 .qr-pop .t.muted{font-size:13px;color:#888}
+/* ayah popup with meaning + tafsir */
+.qr-pop.wide{display:flex;flex-direction:column}
+.qr-pop.wide .pop-body{overflow-y:auto;overscroll-behavior:contain;padding-bottom:6px;min-height:0;flex:1}
+.qr-pop.wide .t{text-align:start;font-size:16.5px;line-height:1.6;padding:2px 14px 6px}
+.qr-pop.wide .t.sub{font-size:14px;color:#555;border-top:1px dashed #e2e2e2;padding-top:6px}
+.qr-pop .pop-sec{margin-top:4px}
+.qr-pop .pop-sec h5{display:flex;align-items:center;gap:8px;margin:8px 14px 4px;font-size:12px;letter-spacing:.4px;text-transform:uppercase;color:#1f8a3b}
+.qr-pop .pop-sec h5::after{content:"";flex:1;height:1px;background:#e3eadf}
+.qr-pop .pop-sec h5 small{order:3;text-transform:none;letter-spacing:0;font-size:12px;color:#777;font-weight:500;font-family:'Hind Siliguri','Roboto',sans-serif;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qr-pop .pop-taf{padding:0 14px 6px;font-size:15px;line-height:1.7;color:#2a2a2a;font-family:'Hind Siliguri','Roboto',sans-serif;overflow-wrap:anywhere}
+.qr-pop .pop-taf p{margin:0 0 .65em}
+.qr-pop .pop-taf h4{font-size:1em;color:#1f6f3c;margin:.6em 0 .3em}
+.qr-pop .pop-taf.lang-ur{font-family:'Noto Nastaliq Urdu',serif;line-height:2.3}
+.qr-pop .pop-taf.lang-ar{font-family:'Amiri',serif;line-height:1.95;font-size:16.5px}
+.qr-pop .pop-note{margin:0 14px 6px;font-size:12px;color:#8a6d1e;background:#fff7e0;border-radius:6px;padding:4px 8px}
+.qr-pop .pop-load{display:flex;gap:5px;padding:10px 14px}
+.qr-pop .pop-load i{width:7px;height:7px;border-radius:50%;background:#1f8a3b;animation:popb 1s infinite}
+.qr-pop .pop-load i:nth-child(2){animation-delay:.15s}.qr-pop .pop-load i:nth-child(3){animation-delay:.3s}
+@keyframes popb{0%,80%,100%{opacity:.3}40%{opacity:1}}
+.qr-pop .pop-foot{border-top:1px solid #e8ece6;padding:8px 10px;display:flex;justify-content:flex-end;flex:none}
+.qr-pop .pop-foot button{background:#1f8a3b;color:#fff;border-radius:999px;padding:7px 14px;font-size:13.5px;font-weight:600}
+.qr-root[data-ui=dark] .qr-pop .pop-taf{color:#dfe5e0}
+.qr-root[data-ui=dark] .qr-pop .pop-foot{border-color:#2c3530}
 
 /* autoscroll */
 .qr-autobar{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--bar);height:60px;display:flex;align-items:center;gap:12px;padding:0 14px}

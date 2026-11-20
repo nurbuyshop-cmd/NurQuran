@@ -7,7 +7,7 @@ import { usePrefs } from "@/lib/quran/prefs";
 import { useSiteConfig } from "@/lib/siteImages";
 import { loadSearch, addStaticFonts } from "@/lib/quran/mushaf";
 import { SURAHS, surah, toArabicDigits } from "@/lib/quran/meta";
-import { tafsirSetup, chosenTafsir, tafsirById, langById, loadTafsirPage, cleanTafsirHtml } from "@/lib/quran/tafsir";
+import { tafsirSetup, chosenTafsir, tafsirById, langById, loadTafsirPage, loadMeanings, cleanTafsirHtml } from "@/lib/quran/tafsir";
 import { BookIco } from "./TafsirSection";
 import "./tafsir.css";
 
@@ -21,7 +21,7 @@ export default function TafsirReader() {
   const setup = useMemo(() => tafsirSetup(cfg), [cfg]);
   const [s, setS] = useState(0);
   const [target, setTarget] = useState(0);
-  const [urlBook, setUrlBook] = useState(0);
+  const [urlBook, setUrlBook] = useState("");
   const [ayahs, setAyahs] = useState(null);       // [[s,a,simple,uthmani]...] for this surah
   const [pages, setPages] = useState([]);         // loaded tafsir pages for this surah
   const [next, setNext] = useState(1);            // next page to load (null = all loaded)
@@ -37,13 +37,13 @@ export default function TafsirReader() {
     const q = query();
     setS(Math.min(114, Math.max(1, +q.get("s") || 1)));
     setTarget(+q.get("a") || 0);
-    setUrlBook(+q.get("t") || 0);
+    setUrlBook(q.get("t") || "");
     try { setSize(+localStorage.getItem(SIZE_KEY) || 17); } catch (e) {}
   }, []);
 
   // book: from the link (?t=) first, then the visitor's saved choice, then the admin default
   const chosen = prefs ? chosenTafsir(prefs, setup) : null;
-  const linkBook = urlBook && setup.books.find((b) => b.id === urlBook);
+  const linkBook = urlBook && setup.books.find((b) => b.id === String(urlBook));
   const bookId = linkBook ? linkBook.id : chosen && chosen.book;
   const book = tafsirById(bookId);
   const lang = book ? book.lang : chosen && chosen.lang;
@@ -56,6 +56,16 @@ export default function TafsirReader() {
     loadSearch().then((all) => live && setAyahs(all.filter((x) => x[0] === s))).catch(() => live && setAyahs([]));
     return () => { live = false; };
   }, [s]);
+
+  // meaning (translation) of the surah in the book's language
+  const [meanings, setMeanings] = useState(null);
+  useEffect(() => {
+    setMeanings(null);
+    if (!s || !lang) return;
+    let live = true;
+    loadMeanings(lang, s).then((m) => live && setMeanings(m)).catch(() => {});
+    return () => { live = false; };
+  }, [s, lang]);
 
   // reset tafsir when surah or book changes
   useEffect(() => { setPages([]); setNext(1); setError(""); }, [s, bookId]);
@@ -155,9 +165,12 @@ export default function TafsirReader() {
           <article key={g.key} className="tfr-item">
             <div className="tfr-ayahs">
               {g.ayahs.map((x) => (
-                <p key={x[1]} id={`a${x[1]}`} className={`ar${x[1] === target ? " hit" : ""}`} dir="rtl">
+                <div key={x[1]} className="one">
+                  <p id={`a${x[1]}`} className={`ar${x[1] === target ? " hit" : ""}`} dir="rtl">
                   {x[3].replace(/\s*[٠-٩]+$/, "")} <span className="no">{toArabicDigits(x[1])}</span>
-                </p>
+                  </p>
+                  {meanings && meanings[x[1]] && <p className={`mean lang-${lang}`} dir={rtl ? "rtl" : "ltr"} lang={lang}>{meanings[x[1]]}</p>}
+                </div>
               ))}
               <span className="ref">{cur.en} {s}:{g.ayahs.length > 1 ? `${g.ayahs[0][1]}–${g.ayahs[g.ayahs.length - 1][1]}` : g.a}</span>
             </div>

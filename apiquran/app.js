@@ -401,16 +401,16 @@ app.delete("/v1/admin/tajweed/lessons/:n", auth, (req, res) => {
 });
 
 /* ---------- Tafsir: which books visitors see, default language and default book per language ---------- */
-const TAFSIR_IDS = [164, 165, 166, 381, 160, 159, 157, 818, 169, 168, 817, 16, 14, 91, 15, 90, 94, 93, 170, 804];
-const TAFSIR_LANGS = ["bn", "ur", "en", "ar", "ru", "ku"];
+const TAFSIR_IDS = ["164", "165", "166", "381", "gh-bengali-mokhtasar", "160", "159", "157", "818", "gh-ur-tafsir-as-saadi-urdu", "169", "168", "817", "gh-en-tafsir-al-mukhtasar", "gh-tafsir-al-jalalayn", "16", "gh-ar-tafsir-al-mukhtasar", "gh-ar-tafsir-al-jalalayn", "14", "91", "15", "90", "94", "93", "gh-indonesian-mokhtasar", "gh-id-tafsir-as-saadi", "gh-hindi-mokhtasar", "gh-tr-tafsir-ibne-kathir", "gh-turkish-mokhtasar", "gh-turkish-tafsir-as-saadi-turkish", "gh-persian-mokhtasar", "gh-pashto-mokhtasar", "gh-uzbek-mokhtasar", "gh-azeri-mokhtasar", "gh-kyrgyz-mokhtasar", "gh-uyghur-mokhtasar", "gh-french-mokhtasar", "gh-fulani-mokhtasar", "gh-sq-saadi", "gh-bosnian-mokhtasar", "gh-malayalam-mokhtasar", "gh-tamil-mokhtasar", "gh-assamese-mokhtasar", "170", "gh-russian-mokhtasar", "gh-ru-tafsir-ibne-kahtir", "804", "gh-kurdish-mokhtasar"];
+const TAFSIR_LANGS = ["bn", "ur", "en", "ar", "id", "hi", "tr", "fa", "ps", "uz", "az", "ky", "ug", "fr", "ff", "sq", "bs", "ml", "ta", "as", "ru", "ku"];
 const getTafsirCfg = () => ({ hidden: [], defaultLang: "bn", defaults: {}, ...(getSettings().tafsir || {}) });
 app.get("/v1/admin/tafsir", auth, (req, res) => ok(res, { tafsir: getTafsirCfg() }));
 app.put("/v1/admin/tafsir", auth, (req, res) => {
   const b = req.body || {};
-  const hidden = Array.isArray(b.hidden) ? [...new Set(b.hidden.map(Number).filter((x) => TAFSIR_IDS.includes(x)))] : getTafsirCfg().hidden;
+  const hidden = Array.isArray(b.hidden) ? [...new Set(b.hidden.map(String).filter((x) => TAFSIR_IDS.includes(x)))] : getTafsirCfg().hidden.map(String);
   const defaults = {};
   Object.entries(b.defaults && typeof b.defaults === "object" ? b.defaults : {}).forEach(([l, id]) => {
-    if (TAFSIR_LANGS.includes(l) && TAFSIR_IDS.includes(+id) && !hidden.includes(+id)) defaults[l] = +id;
+    if (TAFSIR_LANGS.includes(l) && TAFSIR_IDS.includes(String(id)) && !hidden.includes(String(id))) defaults[l] = String(id);
   });
   const t = { hidden, defaultLang: TAFSIR_LANGS.includes(b.defaultLang) ? b.defaultLang : "bn", defaults };
   store.write("settings", { ...getSettings(), tafsir: t });

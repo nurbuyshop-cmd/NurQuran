@@ -47,15 +47,17 @@
 .tfr-list{max-width:900px;margin:0 auto;padding:6px 12px}
 .tfr-item{background:#fff;border-radius:14px;margin:12px 0;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden}
 .tfr-ayahs{position:relative;background:linear-gradient(180deg,#f3f9ef,#eaf3e3);padding:16px 16px 26px;border-bottom:1px solid #dfe9d6}
-.tfr-ayahs p{font-size:calc(var(--tfz) * 1.45);line-height:2.05;text-align:right;color:#111;scroll-margin-top:84px}
-.tfr-ayahs p + p{margin-top:6px;padding-top:6px;border-top:1px dashed #d5e2ca}
+.tfr-ayahs p.ar{font-size:calc(var(--tfz) * 1.45);line-height:2.05;text-align:right;color:#111;scroll-margin-top:84px}
+.tfr-ayahs .one + .one{margin-top:8px;padding-top:8px;border-top:1px dashed #d5e2ca}
+.tfr-ayahs p.mean{font-size:calc(var(--tfz) * .95);line-height:1.6;color:#2f4a37;text-align:start;margin-top:4px;font-family:'Hind Siliguri','Roboto',sans-serif}
+.tfr-ayahs p.mean.lang-ur{font-family:'Noto Nastaliq Urdu',serif;line-height:2.2}
 .tfr-ayahs p.hit{background:rgba(198,40,40,.07);border-radius:8px;margin:0 -8px;padding:0 8px}
 .tfr-ayahs .no{display:inline-grid;place-items:center;min-width:1.7em;height:1.7em;padding:0 .2em;margin:0 .15em;border-radius:50%;border:1.5px solid #1f8a3b;color:#1f8a3b;
   font-size:.5em;line-height:1;vertical-align:middle;font-family:'Amiri',serif}
 .tfr-ayahs .ref{position:absolute;left:14px;bottom:6px;font-size:11.5px;color:#1f6f3c;font-weight:600;letter-spacing:.2px}
 .tfr-text{padding:14px 16px 18px;font-size:var(--tfz);line-height:1.75;color:#262626;font-family:'Hind Siliguri','Roboto',sans-serif;overflow-wrap:anywhere}
 .tfr-text.lang-ur{font-family:'Noto Nastaliq Urdu','Jameel Noori Nastaleeq',serif;line-height:2.4}
-.tfr-text.lang-ar,.tfr-text.lang-ku{font-family:'Amiri',var(--font-ar);line-height:2}
+.tfr-text.lang-ar,.tfr-text.lang-ku,.tfr-text.lang-fa,.tfr-text.lang-ps,.tfr-text.lang-ug{font-family:'Amiri',var(--font-ar);line-height:2}
 .tfr-text p{margin:0 0 .8em}
 .tfr-text h4{font-size:1.05em;color:#1f6f3c;margin:1em 0 .45em;font-weight:700}
 .tfr-text b,.tfr-text strong{color:#14301d}
