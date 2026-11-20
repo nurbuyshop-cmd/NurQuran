@@ -309,3 +309,39 @@ input,select,textarea{font:inherit;color:inherit}
 .qa-rec.none{border-style:dashed}
 .qa-rec .act{display:flex;gap:4px;align-items:center;margin-top:4px}
 .qa-rec .qa-btn.dis{opacity:.6;pointer-events:none}
+/* Learn Tajweed: per-lesson access + lesson editor */
+.qa-seg.sm button{font-size:12.5px;padding:5px 10px}
+.qa-seg.xs{padding:2px}
+.qa-seg.xs button{font-size:12px;padding:4px 9px}
+.qa-seg.xs button.on.free{background:#1d8a5c}
+.qa-seg.xs button.on.limited{background:#4f7cac}
+.qa-seg.xs button.on.premium{background:#b8860b}
+.qa-lessonacc{display:flex;flex-direction:column;border:1.5px solid #e5ebe2;border-radius:12px;overflow:hidden;margin:8px 0 6px}
+.qa-lessonacc .row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid #eef2ec}
+.qa-lessonacc .row:last-child{border-bottom:0}
+.qa-lessonacc .n{width:26px;height:26px;border-radius:50%;background:#eef6f1;color:var(--g2);display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+.qa-lessonacc .nm{flex:1;min-width:0;display:flex;flex-direction:column}
+.qa-lessonacc .nm b{font-weight:500;font-size:15px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qa-lessonacc .nm small{font-size:11.5px;color:#6b7280}
+.qa-itemedit{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:520px;overflow:auto;padding-right:4px}
+.qa-itemedit .hd,.qa-itemedit .row{display:grid;grid-template-columns:30px 1fr 1.3fr auto;gap:8px;align-items:center}
+.qa-itemedit .hd{font-size:12px;color:#6b7280;font-weight:600;position:sticky;top:0;background:#fff;padding:4px 0;z-index:1}
+.qa-itemedit .n{font-size:12px;color:#6b7280;text-align:center}
+.qa-itemedit .ar{font-family:"Al Majeed Quranic","NQ Uthmanic",serif;font-size:20px;text-align:right}
+.qa-itemedit .act{display:flex;gap:2px}
+@media (max-width:640px){.qa-itemedit .hd{display:none}.qa-itemedit .row{grid-template-columns:24px 1fr auto;}.qa-itemedit .row input:nth-of-type(2){grid-column:2/4}}
+/* Adhan sounds */
+.qa-adhan{display:flex;flex-direction:column;border:1.5px solid #e5ebe2;border-radius:12px;overflow:hidden}
+.qa-adhan .row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid #eef2ec;flex-wrap:wrap}
+.qa-adhan .row:last-child{border-bottom:0}
+.qa-adhan .nm{flex:1;min-width:180px;display:flex;flex-direction:column}
+.qa-adhan .nm small{font-size:12px;color:#6b7280}
+.qa-adhan .nm small.mine{color:var(--g2);font-weight:600}
+.qa-adhan .act{display:flex;align-items:center;gap:6px}
+.qa-adhan .prem{display:flex;align-items:center;gap:6px;font-size:13px;color:#4b5563;cursor:pointer;user-select:none}
+.qa-adhan .prem input{width:16px;height:16px;accent-color:#b8860b}
+.qa-tafsir-lang{margin-top:14px}
+.qa-tafsir-lang h3{font-size:14px;margin:0 0 6px}
+.qa-adhan .prem.show input{accent-color:var(--g2)}
+.qa-adhan .prem input[type=radio]{accent-color:var(--g2)}
+.qa-adhan .nm b{align-self:flex-start}

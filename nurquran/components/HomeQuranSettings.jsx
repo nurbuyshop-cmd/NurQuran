@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { usePrefs } from "@/lib/quran/prefs";
 import { supportsColorFont } from "@/lib/quran/mushaf";
 import { SettingsCards } from "@/components/quran/SettingsScreen";
+import TafsirSection from "@/components/tafsir/TafsirSection";
 
 export default function HomeQuranSettings() {
   const [prefs, save] = usePrefs();
@@ -15,6 +16,7 @@ export default function HomeQuranSettings() {
     <div className="home-qset qset">
       <h2 className="sec-title desk-only">Quran settings</h2>
       <SettingsCards prefs={prefs} save={save} colorOk={colorOk} />
+      <div className="qset-body tfs-wrap"><TafsirSection prefs={prefs} save={save} /></div>
     </div>
   );
 }

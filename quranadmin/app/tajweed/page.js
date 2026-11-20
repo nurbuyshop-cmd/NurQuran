@@ -5,8 +5,10 @@ import Shell from "@/components/Shell";
 import { api } from "@/lib/api";
 import { I, useUi, timeAgo } from "@/components/ui";
 
-function Access({ t, setT, onSave, busy }) {
+function Access({ t, setT, onSave, busy, lessons }) {
   const setPlan = (i, patch) => setT({ ...t, plans: t.plans.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
+  const setAcc = (n, v) => setT({ ...t, lessonAccess: { ...(t.lessonAccess || {}), [n]: v } });
+  const setAll = (v) => setT({ ...t, lessonAccess: Object.fromEntries((lessons || []).map((l) => [l.n, v])) });
   return (
     <div className="qa-card qa-form">
       <h2>Access</h2>
@@ -16,9 +18,35 @@ function Access({ t, setT, onSave, busy }) {
       </div>
       <p className="qa-muted small">{t.mode === "free"
         ? "Every lesson and every item is open to all visitors."
-        : `Visitors can open the first ${t.freeCount} items of every lesson. People with a Premium code can open everything.`}</p>
+        : "Choose for each lesson below whether it is free, limited or Premium."}</p>
       {t.mode === "limited" && (
-        <label>Free items in each lesson<input className="qa-input sm" type="number" min="0" max="200" value={t.freeCount} onChange={(e) => setT({ ...t, freeCount: e.target.value })} /></label>
+        <>
+          <h3>Each lesson <small className="qa-muted">(choose what visitors without Premium can open)</small></h3>
+          <div className="qa-seg sm">
+            <button onClick={() => setAll("free")}>All free</button>
+            <button onClick={() => setAll("limited")}>All limited</button>
+            <button onClick={() => setAll("premium")}>All Premium</button>
+          </div>
+          <div className="qa-lessonacc">
+            {(lessons || []).map((l) => {
+              const v = (t.lessonAccess || {})[l.n] || "limited";
+              return (
+                <div key={l.n} className="row">
+                  <span className="n">{l.n}</span>
+                  <span className="nm"><b dir="rtl">{l.title}</b><small>{l.en}</small></span>
+                  <div className="qa-seg xs">
+                    {[["free", "Free"], ["limited", "Limited"], ["premium", "Premium"]].map(([k, lb]) => (
+                      <button key={k} className={v === k ? `on ${k}` : ""} onClick={() => setAcc(l.n, k)}>{lb}</button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {!lessons && <div className="qa-skel" />}
+          </div>
+          <label>"Limited" lessons: free items at the start<input className="qa-input sm" type="number" min="0" max="200" value={t.freeCount} onChange={(e) => setT({ ...t, freeCount: e.target.value })} /></label>
+          <p className="qa-muted small">Free = every item open · Limited = only the first {t.freeCount} items open · Premium = whole lesson locked. People with a Premium code can open everything.</p>
+        </>
       )}
       <h3>Premium plans <small className="qa-muted">(shown on the website's Premium page)</small></h3>
       {t.plans.map((p, i) => (
@@ -110,13 +138,11 @@ function Codes({ plans }) {
   );
 }
 
-function Recordings({ audio, setAudio }) {
+function Recordings({ audio, setAudio, data }) {
   const { notify } = useUi();
-  const [data, setData] = useState(null);
   const [n, setN] = useState(1);
   const [busy, setBusy] = useState("");
   const player = useRef(null);
-  useEffect(() => { fetch("/tajweed/lessons.json").then((r) => r.json()).then(setData).catch(() => setData({ lessons: [] })); }, []);
   const lesson = data && data.lessons.find((l) => l.n === n);
   const listen = (url) => { const a = player.current; a.src = url; a.play().catch(() => notify("Could not play", "err")); };
   const upload = async (id, file) => {
@@ -141,7 +167,7 @@ function Recordings({ audio, setAudio }) {
           {data.lessons.map((l) => <option key={l.n} value={l.n}>{l.n}. {l.title} ({l.en})</option>)}
         </select>}
       </div>
-      <p className="qa-muted small">Words taken from the Quran already have Quran.com's word-by-word recitation. Letter lessons need your own recordings: upload one short audio for each item (mp3 / m4a, max 10 MB). An uploaded recording is used instead of the built-in one.</p>
+      <p className="qa-muted small">Tap Upload on any item (alif, ba, …) to add the sound visitors hear when they tap it — one short audio per item (mp3 / m4a, max 10 MB). Words taken from the Quran already have Quran.com's word-by-word recitation; an uploaded recording is used instead of it.</p>
       {!data ? <div className="qa-skel" /> : !lesson ? <p className="qa-muted">Lessons file not found — rebuild the admin panel.</p> : (
         <div className="qa-recgrid">
           {lesson.items.map((x) => {
@@ -166,12 +192,98 @@ function Recordings({ audio, setAudio }) {
   );
 }
 
+// built-in lessons with the admin panel's edits applied
+const mergeLessons = (base, edits) => {
+  const map = new Map((base || []).map((l) => [l.n, l]));
+  Object.values(edits || {}).forEach((l) => { if (l && l.n) map.set(+l.n, { ...map.get(+l.n), ...l, n: +l.n, edited: true }); });
+  return [...map.values()].sort((a, b) => a.n - b.n);
+};
+
+function LessonEditor({ data, edits, setEdits }) {
+  const { notify, ask } = useUi();
+  const [n, setN] = useState(1);
+  const [f, setF] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const lesson = data && data.lessons.find((l) => l.n === n);
+  useEffect(() => { if (lesson) setF(JSON.parse(JSON.stringify({ title: lesson.title, en: lesson.en || "", cols: lesson.cols, items: lesson.items }))); }, [lesson && lesson.n, edits]); // eslint-disable-line
+  const setItem = (i, patch) => setF({ ...f, items: f.items.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+  const move = (i, d) => { const it = [...f.items]; const [x] = it.splice(i, 1); it.splice(i + d, 0, x); setF({ ...f, items: it }); };
+  const save = async () => {
+    setBusy(true);
+    try {
+      const r = await api(`/v1/admin/tajweed/lessons/${n}`, { method: "PUT", body: f });
+      setEdits((m) => ({ ...m, [n]: r.lesson })); notify("Lesson saved — the website shows it now");
+    } catch (e) { notify(e.message, "err"); }
+    setBusy(false);
+  };
+  const reset = async () => {
+    if (!(await ask({ title: `Undo all changes to lesson ${n}?`, message: "The original lesson comes back. A lesson you added is removed.", ok: "Undo changes", danger: true }))) return;
+    try {
+      await api(`/v1/admin/tajweed/lessons/${n}`, { method: "DELETE" });
+      setEdits((m) => { const x = { ...m }; delete x[n]; return x; });
+      if (!data.base.some((l) => l.n === n)) setN(1);
+      notify("Original lesson restored");
+    } catch (e) { notify(e.message, "err"); }
+  };
+  const addLesson = () => {
+    const next = Math.max(...data.lessons.map((l) => l.n)) + 1;
+    setEdits((m) => ({ ...m, [next]: { n: next, title: "درس جديد", en: "New lesson", items: [{ id: `${next}-1`, t: "ا", sp: "" }], draft: true } }));
+    setN(next);
+  };
+  return (
+    <div className="qa-card qa-form">
+      <div className="qa-card-h"><h2>Edit lessons</h2>
+        {data && <select className="qa-input" style={{ maxWidth: 320 }} value={n} onChange={(e) => setN(+e.target.value)}>
+          {data.lessons.map((l) => <option key={l.n} value={l.n}>{l.n}. {l.title} ({l.en}){l.edited ? " · edited" : ""}</option>)}
+        </select>}
+        <button className="qa-btn ghost sm" onClick={addLesson}><I.plus />New lesson</button>
+      </div>
+      <p className="qa-muted small">Change a lesson's name, the letters / words in it and their spellings, change the order or add new items. Saved changes show on the website straight away.</p>
+      {!f ? <div className="qa-skel" /> : (
+        <>
+          <div className="qa-grid2">
+            <label>Lesson name (Arabic)<input className="qa-input" dir="rtl" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></label>
+            <label>Lesson name (English)<input className="qa-input" value={f.en} onChange={(e) => setF({ ...f, en: e.target.value })} /></label>
+          </div>
+          <div className="qa-itemedit">
+            <div className="hd"><span>#</span><span>Letter / word</span><span>Spelling (shown under it)</span><span /></div>
+            {f.items.map((x, i) => (
+              <div key={x.id || i} className="row">
+                <span className="n">{i + 1}</span>
+                <input className="qa-input ar" dir="rtl" value={x.t} onChange={(e) => setItem(i, { t: e.target.value })} />
+                <input className="qa-input" dir="auto" value={x.sp || ""} placeholder={x.v ? "(automatic: letter name + vowel)" : ""} onChange={(e) => setItem(i, { sp: e.target.value })} />
+                <span className="act">
+                  <button className="qa-icon-btn" title="Move up" disabled={!i} onClick={() => move(i, -1)}><I.up /></button>
+                  <button className="qa-icon-btn" title="Move down" disabled={i === f.items.length - 1} onClick={() => move(i, 1)}><I.down /></button>
+                  <button className="qa-icon-btn red" title="Remove" onClick={() => setF({ ...f, items: f.items.filter((_, j) => j !== i) })}><I.trash /></button>
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="qa-form-foot">
+            <button className="qa-btn ghost" onClick={() => setF({ ...f, items: [...f.items, { t: "", sp: "" }] })}><I.plus />Add item</button>
+            {lesson && lesson.edited && !lesson.draft && <button className="qa-btn ghost" onClick={reset}>Undo changes</button>}
+            <button className="qa-btn" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save lesson"}</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function TajweedBody() {
   const { notify } = useUi();
   const [t, setT] = useState(null);
   const [audio, setAudio] = useState({});
   const [busy, setBusy] = useState(false);
+  const [base, setBase] = useState(null);
+  const [edits, setEdits] = useState({});
   useEffect(() => { api("/v1/admin/tajweed").then((r) => { setT(r.tajweed); setAudio(r.audio || {}); }).catch((e) => notify(e.message, "err")); }, [notify]);
+  useEffect(() => {
+    fetch("/tajweed/lessons.json").then((r) => r.json()).then(setBase).catch(() => setBase({ lessons: [] }));
+    api("/v1/admin/tajweed/lessons").then((r) => setEdits(r.lessons || {})).catch(() => {});
+  }, []);
+  const data = base ? { ...base, base: base.lessons, lessons: mergeLessons(base.lessons, edits) } : null;
   const save = async () => {
     setBusy(true);
     try { const r = await api("/v1/admin/tajweed", { method: "PUT", body: t }); setT(r.tajweed); notify("Saved — the website uses it now"); }
@@ -181,8 +293,9 @@ function TajweedBody() {
   if (!t) return <div className="qa-skel" />;
   return (
     <div className="qa-tajweed">
-      <div className="qa-grid2 top"><Access t={t} setT={setT} onSave={save} busy={busy} /><Codes plans={t.plans} /></div>
-      <Recordings audio={audio} setAudio={setAudio} />
+      <div className="qa-grid2 top"><Access t={t} setT={setT} onSave={save} busy={busy} lessons={data && data.lessons} /><Codes plans={t.plans} /></div>
+      <Recordings audio={audio} setAudio={setAudio} data={data} />
+      <LessonEditor data={data} edits={edits} setEdits={setEdits} />
     </div>
   );
 }

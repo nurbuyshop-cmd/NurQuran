@@ -8,9 +8,11 @@ import {
   nowIn, addDays, fmtGregLong, hijriDate, qiblaBearing, bearingText,
 } from "@/lib/prayerEngine";
 import {
-  usePrayerSettings, SOUNDS, soundById, loadCountries, loadCities, nearestCity, searchAllCities,
+  usePrayerSettings, SOUNDS, soundById, isPremiumSound, loadCountries, loadCities, nearestCity, searchAllCities,
 } from "@/lib/prayerStore";
 import { playSound, stopSound } from "@/lib/sounds";
+import { useSiteConfig } from "@/lib/siteImages";
+import { usePremium } from "@/lib/premium";
 import {
   Back, ChevL, ChevR, Share, Locate, Check, Plus, Gear, QiblaBtnIco, SoundIco,
 } from "./PtIcons";
@@ -303,10 +305,13 @@ function MainScreen({ ctx }) {
 
 function AlarmSoundScreen({ ctx, target }) {
   const { settings, update, pop, draft, setDraft, nextOccurrence, setDialog } = ctx;
+  const cfg = useSiteConfig();
+  const { premium } = usePremium();
+  const locked = (s) => !premium && isPremiumSound(s, cfg.adhan);
   const cur = target.kind === "prayer" ? settings.alarms[target.key] : draft?.sound;
   const [flash, setFlash] = useState(null);
   const choose = (s) => {
-    if (s.premium) { setDialog({ type: "premium" }); return; }
+    if (locked(s)) { setDialog({ type: "premium" }); return; }
     setFlash(s.id);
     setTimeout(() => setFlash(null), 350);
     if (target.kind === "prayer") update((st) => ({ ...st, alarms: { ...st.alarms, [target.key]: s.id } }));
@@ -319,7 +324,7 @@ function AlarmSoundScreen({ ctx, target }) {
       <div className="pt-body flush">
         <div className="pt-card pt-sounds">
           {SOUNDS.map((s) => (
-            <button key={s.id} className={`pt-snd${s.premium ? " dim" : ""}${flash === s.id ? " flash" : ""}`} onClick={() => choose(s)}>
+            <button key={s.id} className={`pt-snd${locked(s) ? " dim" : ""}${flash === s.id ? " flash" : ""}`} onClick={() => choose(s)}>
               <SoundIco kind={s.icon} size={28} />
               <span>{s.name}</span>
               {cur === s.id && <span className="ck"><Check /></span>}
@@ -756,7 +761,7 @@ function Dialogs({ ctx, dialog }) {
         <div className="pt-d">
           <h3>Premium</h3>
           <p className="msg">This adhan is available with Quran Premium.</p>
-          <div className="pt-dbtns"><button onClick={close}>OK</button></div>
+          <div className="pt-dbtns"><button onClick={close}>OK</button><button onClick={() => { close(); ctx.router.push("/premium"); }}>GET PREMIUM</button></div>
         </div>
       );
       break;

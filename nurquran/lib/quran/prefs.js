@@ -15,6 +15,7 @@ export const PREF_DEFAULTS = {
   bookmarks: [], reading: null, speed: 1, repeat: 1, reciter: DEFAULT_RECITER, bismillah: true,
   qfont: "indopak", lines15: false, pageLines: true, screenOn: true, size: 47, sizeLock: false,
   theme: "green", appearance: "light",
+  tafsirLang: null, tafsirBook: null, // null = the default chosen in the admin panel (Bangla first)
   // Advanced Settings
   newToolbar: true, textEffects: false, arabicIndex: false, pageIndex: true, audioSmoother: true, echo: false, autoBackup: false,
 };
@@ -48,6 +49,7 @@ export function usePrefs() {
     setPrefs((p) => {
       const n = { ...p, ...(typeof patch === "function" ? patch(p) : patch) };
       try { localStorage.setItem(PREF_KEY, JSON.stringify(n)); } catch (e) {}
+      setTimeout(() => { try { window.dispatchEvent(new Event("nq-font")); } catch (e) {} }, 0);
       return n;
     });
   }, []);

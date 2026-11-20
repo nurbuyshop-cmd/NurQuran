@@ -1,5 +1,6 @@
 import "./globals.css";
 import AlarmRunner from "@/components/AlarmRunner";
+import FontSync from "@/components/FontSync";
 
 export const metadata = {
   title: "Quran",
@@ -18,6 +19,7 @@ export default function RootLayout({ children }) {
       <body>
         {children}
         <AlarmRunner />
+        <FontSync />
       </body>
     </html>
   );

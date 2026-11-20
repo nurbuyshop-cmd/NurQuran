@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Amiri:wght@400;700&family=Amiri+Quran&family=Hind+Siliguri:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Amiri:wght@400;700&family=Amiri+Quran&family=Hind+Siliguri:wght@400;500&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap');
 
 /* Arabic font for the whole site: put the font files in public/fonts/ */
 @font-face{font-family:'Al Majeed Quranic';src:url('/fonts/AlMajeedQuranic.woff2') format('woff2'),url('/fonts/AlMajeedQuranic.ttf') format('truetype');font-display:swap}

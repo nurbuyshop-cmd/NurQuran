@@ -82,11 +82,22 @@ export default function TajweedApp() {
 
   const t = cfg.tajweed || { mode: "limited", freeCount: 6 };
   const open = t.mode === "free" || !!premium;
-  const lesson = data && view.l ? data.lessons.find((x) => x.n === view.l) : null;
+  // lessons edited / added in the admin panel replace the built-in ones
+  const lessons = useMemo(() => {
+    if (!data) return null;
+    const edits = cfg.tajweedLessons || {};
+    const map = new Map(data.lessons.map((l) => [l.n, l]));
+    Object.values(edits).forEach((l) => { if (l && l.n && l.items && l.items.length) map.set(+l.n, { ...map.get(+l.n), ...l, n: +l.n }); });
+    return [...map.values()].sort((a, b) => a.n - b.n);
+  }, [data, cfg.tajweedLessons]);
+  // how many items of lesson n are open: free lesson → all, premium lesson → none, otherwise the first freeCount
+  const access = (n) => (open ? "free" : (t.lessonAccess || {})[n] || "limited");
+  const freeFor = (n) => { const a = access(n); return a === "free" ? Infinity : a === "premium" ? 0 : (+t.freeCount || 0); };
+  const lesson = lessons && view.l ? lessons.find((x) => x.n === view.l) : null;
 
   if (view.settings) return <Settings prefs={prefs} save={save} onBack={back} />;
   if (lesson) return <Lesson lesson={lesson} audioBase={data.audioBase} uploaded={cfg.tajweedAudio || {}} prefs={prefs}
-    freeCount={open ? Infinity : t.freeCount} onBack={back} onSettings={() => go(view.l, true)} onBuy={() => router.push("/premium")} />;
+    freeCount={freeFor(lesson.n)} onBack={back} onSettings={() => go(view.l, true)} onBuy={() => router.push("/premium")} />;
 
   return (
     <div className="tj">
@@ -98,15 +109,21 @@ export default function TajweedApp() {
       </header>
       <div className="tj-arc"><div className="bism" dir="rtl">{bism}</div></div>
       <ol className="tj-lessons">
-        {!data && <li className="tj-empty">Loading…</li>}
-        {data && data.lessons.map((l) => (
-          <li key={l.n}>
-            <button onClick={() => go(l.n)}>
-              <Star n={l.n} />
-              <span className="tx"><b dir="rtl">{l.title}</b><small>Lesson {l.n}{l.en ? ` · ${l.en}` : ""}</small></span>
-            </button>
-          </li>
-        ))}
+        {!lessons && <li className="tj-empty">Loading…</li>}
+        {lessons && lessons.map((l) => {
+          const a = access(l.n);
+          return (
+            <li key={l.n}>
+              <button onClick={() => go(l.n)}>
+                <Star n={l.n} />
+                <span className="tx"><b dir="rtl">{l.title}</b><small>Lesson {l.n}{l.en ? ` · ${l.en}` : ""}</small></span>
+                {!premium && t.mode !== "free" && (a === "free"
+                  ? <span className="tj-badge free">Free</span>
+                  : a === "premium" ? <span className="tj-badge lock" aria-label="Premium"><svg viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0110 0v3h1a1 1 0 011 1v9a1 1 0 01-1 1H6a1 1 0 01-1-1v-9a1 1 0 011-1zm2 0h6V7a3 3 0 00-6 0z" fill="currentColor" /></svg></span> : null)}
+              </button>
+            </li>
+          );
+        })}
       </ol>
     </div>
   );
@@ -189,7 +206,7 @@ function Lesson({ lesson, audioBase, uploaded, prefs, freeCount, onBack, onSetti
         })}
       </div>
       {freeCount < items.length && (
-        <div className="tj-more"><button onClick={onBuy}>Unlock all {items.length} items with Premium</button></div>
+        <div className="tj-more"><button onClick={onBuy}>{freeCount === 0 ? "This lesson is part of Premium — unlock it" : `Unlock all ${items.length} items with Premium`}</button></div>
       )}
       {locked && (
         <div className="tj-dlg-bg" onClick={() => setLocked(false)}>

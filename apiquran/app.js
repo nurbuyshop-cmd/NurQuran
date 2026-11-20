@@ -228,7 +228,8 @@ app.get("/v1/site", (req, res) => {
   const d = getImages();
   res.set("Cache-Control", "no-cache");
   ok(res, { updatedAt: d.updatedAt, images: d.items, reciters: getSettings().reciters || null,
-    tajweed: publicTajweed(), tajweedAudio: getTajweedAudio().items });
+    tajweed: publicTajweed(), tajweedAudio: getTajweedAudio().items, tajweedLessons: getTajweedLessons().lessons,
+    adhan: publicAdhan(), tafsir: getSettings().tafsir || null });
 });
 app.get("/v1/images", (req, res) => {
   const d = getImages();
@@ -286,8 +287,10 @@ const TAJ_DEFAULT = {
   ],
   payInfo: "",
 };
-const getTajweed = () => ({ ...TAJ_DEFAULT, ...(getSettings().tajweed || {}) });
-const publicTajweed = () => { const t = getTajweed(); return { mode: t.mode, freeCount: t.freeCount, plans: t.plans, payInfo: t.payInfo }; };
+const getTajweed = () => ({ ...TAJ_DEFAULT, lessonAccess: {}, ...(getSettings().tajweed || {}) });
+const publicTajweed = () => { const t = getTajweed(); return { mode: t.mode, freeCount: t.freeCount, lessonAccess: t.lessonAccess || {}, plans: t.plans, payInfo: t.payInfo }; };
+// lessons edited in the admin panel (title, items, new lessons): { lessons: { [n]: lesson } } — replaces the built-in lesson n
+const getTajweedLessons = () => store.read("tajweedLessons", () => ({ lessons: {} }));
 const getTajweedAudio = () => store.read("tajweedAudio", () => ({ items: {} }));
 const getCodes = () => store.read("premiumCodes", []);
 const PREMIUM_SECRET = () => JWT_SECRET + ":premium";
@@ -336,15 +339,130 @@ app.put("/v1/admin/tajweed", auth, (req, res) => {
     id: String(p.id || `plan${i + 1}`).replace(/[^a-z0-9-]/gi, "").slice(0, 20) || `plan${i + 1}`,
     name: String(p.name || "").trim().slice(0, 30), price: String(p.price || "").trim().slice(0, 30), note: String(p.note || "").trim().slice(0, 60),
   })).filter((p) => p.name) : cur.plans;
+  // per lesson: "free" (all items open), "premium" (all items locked), "limited" (first freeCount items open)
+  const lessonAccess = {};
+  const la = b.lessonAccess && typeof b.lessonAccess === "object" ? b.lessonAccess : (cur.lessonAccess || {});
+  Object.entries(la).slice(0, 200).forEach(([n, v]) => {
+    if (/^\d{1,3}$/.test(n) && ["free", "premium", "limited"].includes(v)) lessonAccess[n] = v;
+  });
   const t = {
     mode: b.mode === "free" ? "free" : "limited",
     freeCount: Math.max(0, Math.min(200, parseInt(b.freeCount ?? cur.freeCount, 10) || 0)),
+    lessonAccess,
     plans,
     payInfo: String(b.payInfo ?? cur.payInfo).slice(0, 2000),
   };
   store.write("settings", { ...getSettings(), tajweed: t });
-  log(req.admin, "updated Learn Tajweed access", t.mode === "free" ? "free for everyone" : `limited (${t.freeCount} free items per lesson)`);
+  const counts = Object.values(lessonAccess).reduce((m, v) => ({ ...m, [v]: (m[v] || 0) + 1 }), {});
+  log(req.admin, "updated Learn Tajweed access", t.mode === "free" ? "free for everyone"
+    : `per lesson — free: ${counts.free || 0}, premium: ${counts.premium || 0}, others limited to ${t.freeCount} items`);
   ok(res, { tajweed: t });
+});
+
+/* ---------- Learn Tajweed: edit lessons (title, items, spellings) and add new lessons ---------- */
+const cleanLesson = (n, b) => {
+  const items = (Array.isArray(b.items) ? b.items : []).slice(0, 300).map((x) => ({
+    id: /^\d{1,3}-\d{1,4}$/.test(String(x.id || "")) && String(x.id).startsWith(`${n}-`) ? String(x.id) : null,
+    t: String(x.t || "").trim().slice(0, 120),
+    sp: String(x.sp || "").trim().slice(0, 120),
+    ...(x.audio && /^[A-Za-z0-9/_.-]{1,200}$/.test(String(x.audio)) ? { audio: String(x.audio) } : {}),
+    ...(x.kind === "letter" ? { kind: "letter" } : {}),
+    ...(x.letter ? { letter: String(x.letter).slice(0, 4) } : {}),
+    ...(["fatha", "kasra", "damma", "fathatan", "kasratan", "dammatan"].includes(x.v) ? { v: x.v } : {}),
+    ...(x.wide ? { wide: true } : {}),
+  })).filter((x) => x.t);
+  let next = items.reduce((m, x) => Math.max(m, x.id ? +x.id.split("-")[1] : 0), 0);
+  const seen = new Set();
+  items.forEach((x) => { if (!x.id || seen.has(x.id)) x.id = `${n}-${++next}`; seen.add(x.id); });
+  return {
+    n, title: String(b.title || "").trim().slice(0, 120) || `Lesson ${n}`, en: String(b.en || "").trim().slice(0, 120),
+    ...(b.cols === 3 ? { cols: 3 } : {}), items,
+  };
+};
+app.get("/v1/admin/tajweed/lessons", auth, (req, res) => ok(res, { lessons: getTajweedLessons().lessons }));
+app.put("/v1/admin/tajweed/lessons/:n", auth, (req, res) => {
+  const n = parseInt(req.params.n, 10);
+  if (!(n >= 1 && n <= 200)) return fail(res, 400, "Lesson number must be 1–200.");
+  const lesson = cleanLesson(n, req.body || {});
+  if (!lesson.items.length) return fail(res, 400, "A lesson needs at least one item.");
+  const d = getTajweedLessons();
+  store.write("tajweedLessons", { lessons: { ...d.lessons, [n]: lesson } });
+  log(req.admin, "edited Learn Tajweed lesson", `${n}. ${lesson.title}`);
+  ok(res, { lesson });
+});
+app.delete("/v1/admin/tajweed/lessons/:n", auth, (req, res) => {
+  const d = getTajweedLessons();
+  const n = String(parseInt(req.params.n, 10));
+  if (!d.lessons[n]) return fail(res, 404, "This lesson has no changes.");
+  const lessons = { ...d.lessons }; delete lessons[n];
+  store.write("tajweedLessons", { lessons });
+  log(req.admin, "reset Learn Tajweed lesson", n);
+  ok(res, {});
+});
+
+/* ---------- Tafsir: which books visitors see, default language and default book per language ---------- */
+const TAFSIR_IDS = ["164", "165", "166", "381", "gh-bengali-mokhtasar", "160", "159", "157", "818", "gh-ur-tafsir-as-saadi-urdu", "169", "168", "817", "gh-en-tafsir-al-mukhtasar", "gh-tafsir-al-jalalayn", "16", "gh-ar-tafsir-al-mukhtasar", "gh-ar-tafsir-al-jalalayn", "14", "91", "15", "90", "94", "93", "gh-indonesian-mokhtasar", "gh-id-tafsir-as-saadi", "gh-hindi-mokhtasar", "gh-tr-tafsir-ibne-kathir", "gh-turkish-mokhtasar", "gh-turkish-tafsir-as-saadi-turkish", "gh-persian-mokhtasar", "gh-pashto-mokhtasar", "gh-uzbek-mokhtasar", "gh-azeri-mokhtasar", "gh-kyrgyz-mokhtasar", "gh-uyghur-mokhtasar", "gh-french-mokhtasar", "gh-fulani-mokhtasar", "gh-sq-saadi", "gh-bosnian-mokhtasar", "gh-malayalam-mokhtasar", "gh-tamil-mokhtasar", "gh-assamese-mokhtasar", "170", "gh-russian-mokhtasar", "gh-ru-tafsir-ibne-kahtir", "804", "gh-kurdish-mokhtasar"];
+const TAFSIR_LANGS = ["bn", "ur", "en", "ar", "id", "hi", "tr", "fa", "ps", "uz", "az", "ky", "ug", "fr", "ff", "sq", "bs", "ml", "ta", "as", "ru", "ku"];
+const getTafsirCfg = () => ({ hidden: [], defaultLang: "bn", defaults: {}, ...(getSettings().tafsir || {}) });
+app.get("/v1/admin/tafsir", auth, (req, res) => ok(res, { tafsir: getTafsirCfg() }));
+app.put("/v1/admin/tafsir", auth, (req, res) => {
+  const b = req.body || {};
+  const hidden = Array.isArray(b.hidden) ? [...new Set(b.hidden.map(String).filter((x) => TAFSIR_IDS.includes(x)))] : getTafsirCfg().hidden.map(String);
+  const defaults = {};
+  Object.entries(b.defaults && typeof b.defaults === "object" ? b.defaults : {}).forEach(([l, id]) => {
+    if (TAFSIR_LANGS.includes(l) && TAFSIR_IDS.includes(String(id)) && !hidden.includes(String(id))) defaults[l] = String(id);
+  });
+  const t = { hidden, defaultLang: TAFSIR_LANGS.includes(b.defaultLang) ? b.defaultLang : "bn", defaults };
+  store.write("settings", { ...getSettings(), tafsir: t });
+  log(req.admin, "updated tafsir settings", `${TAFSIR_IDS.length - hidden.length} books shown, default ${t.defaultLang}`);
+  ok(res, { tafsir: t });
+});
+
+/* ---------- Prayer Times: adhan recordings and which adhans need Premium ---------- */
+const ADHAN_IDS = ["default", "beep", "mishari", "mishari_full", "madinah", "madinah_full", "makkah", "makkah_full",
+  "istanbul", "istanbul_full", "aqsa", "aqsa_full"];
+const ADHAN_PREMIUM_DEFAULT = ["makkah_full", "istanbul_full", "aqsa_full"];
+const getAdhan = () => store.read("adhan", () => ({ premium: ADHAN_PREMIUM_DEFAULT, audio: {} }));
+const publicAdhan = () => { const a = getAdhan(); return { premium: a.premium, audio: a.audio }; };
+const adhanUpload = multer({
+  storage: multer.diskStorage({
+    destination: path.join(UPLOAD_DIR, "audio"),
+    filename: (req, f, cb) => cb(null, `adhan-${String(req.query.id || "x").replace(/[^a-z_]/g, "")}-${Date.now()}${(path.extname(f.originalname) || ".mp3").toLowerCase()}`),
+  }),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (req, f, cb) => cb(null, /\.(mp3|m4a|ogg|wav|aac)$/i.test(f.originalname) && /^(audio|video)\//.test(f.mimetype)),
+});
+app.get("/v1/admin/adhan", auth, (req, res) => ok(res, { adhan: getAdhan() }));
+app.put("/v1/admin/adhan", auth, (req, res) => {
+  const b = req.body || {};
+  const premium = Array.isArray(b.premium) ? [...new Set(b.premium.map(String).filter((x) => ADHAN_IDS.includes(x)))] : getAdhan().premium;
+  store.write("adhan", { ...getAdhan(), premium });
+  log(req.admin, "updated adhan Premium list", premium.join(", ") || "all free");
+  ok(res, { adhan: getAdhan() });
+});
+app.post("/v1/admin/adhan/audio", auth, (req, res, next) => {
+  if (!ADHAN_IDS.includes(String(req.query.id || ""))) return fail(res, 400, "Unknown adhan.");
+  next();
+}, adhanUpload.single("file"), (req, res) => {
+  if (!req.file) return fail(res, 400, "Choose an audio file (mp3, m4a, ogg, wav, aac — max 15 MB).");
+  const id = String(req.query.id);
+  const base = process.env.PUBLIC_URL || `${req.protocol}://${req.get("host")}`;
+  const d = getAdhan();
+  removeAudioFile(d.audio[id]);
+  const url = `${base}/uploads/audio/${req.file.filename}`;
+  store.write("adhan", { ...d, audio: { ...d.audio, [id]: url } });
+  log(req.admin, "uploaded adhan", id);
+  ok(res, { id, url });
+});
+app.delete("/v1/admin/adhan/audio", auth, (req, res) => {
+  const id = String(req.query.id || "");
+  const d = getAdhan();
+  if (!d.audio[id]) return fail(res, 404, "This adhan uses the built-in recording.");
+  removeAudioFile(d.audio[id]);
+  const audio = { ...d.audio }; delete audio[id];
+  store.write("adhan", { ...d, audio });
+  log(req.admin, "removed uploaded adhan", id);
+  ok(res, {});
 });
 
 // premium codes: the admin makes a code for a buyer; the buyer types it on the website (Premium page)
@@ -528,7 +646,7 @@ app.delete("/v1/admin/admins/:id", auth, ownerOnly, (req, res) => {
 /* ---------- admin: backup ---------- */
 app.get("/v1/admin/export", auth, (req, res) => {
   res.set("Content-Disposition", `attachment; filename="nurquran-backup-${new Date().toISOString().slice(0, 10)}.json"`);
-  res.json({ exportedAt: new Date().toISOString(), ...getPages(), settings: getSettings() });
+  res.json({ exportedAt: new Date().toISOString(), ...getPages(), settings: getSettings(), tajweedLessons: getTajweedLessons(), adhan: getAdhan() });
 });
 app.post("/v1/admin/import", auth, ownerOnly, (req, res) => {
   const incoming = req.body && Array.isArray(req.body.pages) ? req.body.pages : null;
@@ -541,6 +659,16 @@ app.post("/v1/admin/import", auth, ownerOnly, (req, res) => {
   }
   store.backup("pages");
   store.write("pages", { updatedAt: new Date().toISOString(), pages: sortPages(clean) });
+  // lessons edited in the admin panel and the adhan Premium list come back too (uploaded files stay where they are)
+  const tl = req.body.tajweedLessons;
+  if (tl && tl.lessons && typeof tl.lessons === "object") {
+    const lessons = {};
+    Object.entries(tl.lessons).slice(0, 200).forEach(([n, l]) => { const k = parseInt(n, 10); if (k >= 1 && k <= 200 && l) lessons[k] = cleanLesson(k, l); });
+    store.write("tajweedLessons", { lessons });
+  }
+  if (req.body.adhan && Array.isArray(req.body.adhan.premium)) {
+    store.write("adhan", { ...getAdhan(), premium: req.body.adhan.premium.map(String).filter((x) => ADHAN_IDS.includes(x)) });
+  }
   log(req.admin, "imported backup", `${clean.length} pages`);
   ok(res, { pages: clean.length });
 });

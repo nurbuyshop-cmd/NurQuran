@@ -4,9 +4,10 @@
 // Shows the last known copy straight away (saved in this browser), then checks the API for changes.
 import { useEffect, useState } from "react";
 import { API_URL } from "@/lib/quran/data";
+import { setSoundOverrides } from "@/lib/sounds";
 
 const CACHE = "nq_site";
-const EMPTY = { images: {}, reciters: null, tajweed: null, tajweedAudio: {} };
+const EMPTY = { images: {}, reciters: null, tajweed: null, tajweedAudio: {}, tajweedLessons: null, adhan: null, tafsir: null };
 let mem = null;
 let inflight = null;
 const subs = new Set();
@@ -26,7 +27,9 @@ function refresh() {
     .then((r) => r.json())
     .then((d) => {
       if (!d || !d.ok) return;
-      mem = { images: d.images || {}, reciters: d.reciters || null, tajweed: d.tajweed || null, tajweedAudio: d.tajweedAudio || {} };
+      mem = { images: d.images || {}, reciters: d.reciters || null, tajweed: d.tajweed || null, tajweedAudio: d.tajweedAudio || {},
+        tajweedLessons: d.tajweedLessons || null, adhan: d.adhan || null, tafsir: d.tafsir || null };
+      setSoundOverrides(mem.adhan && mem.adhan.audio);
       try { localStorage.setItem(CACHE, JSON.stringify(mem)); } catch (e) {}
       subs.forEach((f) => f(mem));
     })
@@ -36,7 +39,7 @@ function refresh() {
 export function useSiteConfig() {
   const [cfg, setCfg] = useState(mem || EMPTY);
   useEffect(() => {
-    if (!mem) { mem = readCache(); setCfg(mem); }
+    if (!mem) { mem = readCache(); setSoundOverrides(mem.adhan && mem.adhan.audio); setCfg(mem); }
     subs.add(setCfg);
     refresh();
     return () => subs.delete(setCfg);

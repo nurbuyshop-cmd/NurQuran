@@ -1,6 +1,10 @@
 "use client";
-// Alarm sounds. Adhan recordings are read from /public/sounds/<id>.mp3 (add your own licensed files there).
+// Alarm sounds. Adhan recordings are read from /public/sounds/<id>.mp3. A recording uploaded in the admin panel
+// (Prayer Times → Adhan sounds) is used instead of the built-in file.
 let ctx = null, current = null;
+let overrides = {};
+export function setSoundOverrides(map) { overrides = map && typeof map === "object" ? map : {}; }
+export const soundUrl = (id) => overrides[id] || `/sounds/${id}.mp3`;
 
 function tone(freqs, dur, vol) {
   try {
@@ -31,7 +35,7 @@ export function playSound(id, volume = 90, preview = true) {
   if (id === "default") return tone([880, 660, 880], 0.35, vol);
   if (id === "beep") return tone([1000], preview ? 1.2 : 3, vol);
   try {
-    const a = new Audio(`/sounds/${id}.mp3`);
+    const a = new Audio(soundUrl(id));
     a.volume = vol;
     a.play().catch(() => tone([660, 880, 990], 0.4, vol));
     if (preview) setTimeout(() => { if (current === a) stopSound(); }, 8000);

@@ -1,0 +1,94 @@
+/* ---------- home page: Tafsir card ---------- */
+.home-qset .tfs-wrap{margin-top:14px}
+.tfs-langs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 12px;margin:0 -2px}
+.tfs-langs::-webkit-scrollbar{display:none}
+.tfs-langs button{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:76px;padding:7px 14px;border-radius:999px;
+  background:#eef4e6;border:1.5px solid #d7e4cc;color:#2c5e3a;font-size:15px;font-weight:600;line-height:1.15;transition:.15s;font-family:'Hind Siliguri','Roboto',sans-serif}
+.tfs-langs button small{font-size:10.5px;font-weight:500;opacity:.75;font-family:'Roboto',sans-serif}
+.tfs-langs button.on{background:#1f8a3b;border-color:#1f8a3b;color:#fff;box-shadow:0 3px 10px rgba(31,138,59,.28)}
+.tfs-books{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;padding:2px 2px 6px;margin:0 -2px}
+.tfs-books::-webkit-scrollbar{display:none}
+.tfs-books.col{flex-direction:column;overflow:visible;gap:8px}
+.tfs-book{position:relative;flex:0 0 200px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:14px 14px 13px;border-radius:14px;
+  background:linear-gradient(160deg,#fbfdf8,#eef5e8);border:1.5px solid #dbe6d2;text-align:start;transition:.15s;font-family:'Hind Siliguri','Roboto',sans-serif}
+.tfs-books.col .tfs-book{flex:none;flex-direction:row;align-items:center;width:100%}
+.tfs-book .ic{width:44px;height:44px;border-radius:12px;background:#fff;color:#1f8a3b;display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.08);flex:none}
+.tfs-book .ic svg{width:30px;height:30px}
+.tfs-book .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.tfs-book .tx b{font-size:16px;font-weight:600;color:#14301d;line-height:1.35}
+.tfs-book .tx small{font-size:12px;color:#5f6b62;line-height:1.35}
+.tfs-book[dir=auto] .tx b:lang(ar){font-family:var(--font-ar)}
+.tfs-book.on{border-color:#1f8a3b;background:linear-gradient(160deg,#f1fbf3,#dff1e2);box-shadow:0 4px 14px rgba(31,138,59,.18)}
+.tfs-book.on .ic{background:#1f8a3b;color:#fff}
+.tfs-book .ck{position:absolute;top:10px;inset-inline-end:10px;width:22px;height:22px;border-radius:50%;background:#1f8a3b;color:#fff;font-size:13px;display:grid;place-items:center}
+.tfs-hint{font-size:12px;color:#6b7280;margin-top:8px}
+
+/* ---------- tafsir reader ---------- */
+.tfr{min-height:100dvh;background:#f4f7ee;color:#1b1b1b;font-family:'Roboto',system-ui,sans-serif;padding-bottom:50px}
+.tfr-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:10px 10px;background:#1f6f3c;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.tfr-head .b{width:38px;height:38px;display:grid;place-items:center;flex:none}
+.tfr-head .b svg{width:24px;height:24px}
+.tfr-head .book{flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:12px;background:rgba(255,255,255,.12);text-align:start;font-family:'Hind Siliguri','Roboto',sans-serif}
+.tfr-head .book .ic{width:32px;height:32px;color:#fff;flex:none}
+.tfr-head .book .ic svg{width:32px;height:32px}
+.tfr-head .book .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+.tfr-head .book b{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tfr-head .book small{font-size:11.5px;opacity:.8}
+.tfr-head .book .dd{width:22px;height:22px;flex:none}
+.tfr-head .sz{display:flex;gap:2px;flex:none}
+.tfr-head .sz button{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.12);font-size:14px;font-weight:700}
+.tfr-surah{display:flex;align-items:center;gap:8px;max-width:900px;margin:12px auto 4px;padding:0 12px}
+.tfr-surah > button:not(.nm){width:40px;height:40px;border-radius:50%;background:#fff;border:1.5px solid #d7e4cc;font-size:24px;color:#1f6f3c;flex:none;line-height:1}
+.tfr-surah > button:disabled{opacity:.35}
+.tfr-surah .nm{flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 10px;border-radius:14px;background:#fff;border:2px solid #c9a24a;
+  box-shadow:inset 0 0 0 3px #fff,inset 0 0 0 4px rgba(201,162,74,.45)}
+.tfr-surah .nm .ar{font-size:24px;color:#c62828;line-height:1.5;font-weight:700}
+.tfr-surah .nm small{font-size:12px;color:#5f6b62}
+.tfr-list{max-width:900px;margin:0 auto;padding:6px 12px}
+.tfr-item{background:#fff;border-radius:14px;margin:12px 0;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden}
+.tfr-ayahs{position:relative;background:linear-gradient(180deg,#f3f9ef,#eaf3e3);padding:16px 16px 26px;border-bottom:1px solid #dfe9d6}
+.tfr-ayahs p.ar{font-size:calc(var(--tfz) * 1.45);line-height:2.05;text-align:right;color:#111;scroll-margin-top:84px}
+.tfr-ayahs .one + .one{margin-top:8px;padding-top:8px;border-top:1px dashed #d5e2ca}
+.tfr-ayahs p.mean{font-size:calc(var(--tfz) * .95);line-height:1.6;color:#2f4a37;text-align:start;margin-top:4px;font-family:'Hind Siliguri','Roboto',sans-serif}
+.tfr-ayahs p.mean.lang-ur{font-family:'Noto Nastaliq Urdu',serif;line-height:2.2}
+.tfr-ayahs p.hit{background:rgba(198,40,40,.07);border-radius:8px;margin:0 -8px;padding:0 8px}
+.tfr-ayahs .no{display:inline-grid;place-items:center;min-width:1.7em;height:1.7em;padding:0 .2em;margin:0 .15em;border-radius:50%;border:1.5px solid #1f8a3b;color:#1f8a3b;
+  font-size:.5em;line-height:1;vertical-align:middle;font-family:'Amiri',serif}
+.tfr-ayahs .ref{position:absolute;left:14px;bottom:6px;font-size:11.5px;color:#1f6f3c;font-weight:600;letter-spacing:.2px}
+.tfr-text{padding:14px 16px 18px;font-size:var(--tfz);line-height:1.75;color:#262626;font-family:'Hind Siliguri','Roboto',sans-serif;overflow-wrap:anywhere}
+.tfr-text.lang-ur{font-family:'Noto Nastaliq Urdu','Jameel Noori Nastaleeq',serif;line-height:2.4}
+.tfr-text.lang-ar,.tfr-text.lang-ku,.tfr-text.lang-fa,.tfr-text.lang-ps,.tfr-text.lang-ug{font-family:'Amiri',var(--font-ar);line-height:2}
+.tfr-text p{margin:0 0 .8em}
+.tfr-text h4{font-size:1.05em;color:#1f6f3c;margin:1em 0 .45em;font-weight:700}
+.tfr-text b,.tfr-text strong{color:#14301d}
+.tfr-text ul,.tfr-text ol{padding-inline-start:1.3em;margin:0 0 .8em}
+.tfr-text blockquote{border-inline-start:3px solid #c9a24a;padding-inline-start:10px;color:#444;margin:0 0 .8em}
+.tfr-text.empty{color:#7a847c;font-style:italic;font-size:14px}
+.tfr-msg{text-align:center;color:#6b7280;padding:30px 10px}
+.tfr-msg.err{color:#b42318}
+.tfr-msg button{margin-inline-start:8px;color:#1f6f3c;font-weight:700;text-decoration:underline}
+.tfr-loading{display:flex;justify-content:center;gap:6px;padding:26px}
+.tfr-loading i{width:9px;height:9px;border-radius:50%;background:#1f8a3b;animation:tfrb 1s infinite ease-in-out}
+.tfr-loading i:nth-child(2){animation-delay:.15s}.tfr-loading i:nth-child(3){animation-delay:.3s}
+@keyframes tfrb{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1);opacity:1}}
+.tfr-sentinel{height:2px}
+.tfr-end{text-align:center;padding:18px}
+.tfr-end button{padding:11px 20px;border-radius:999px;background:#1f8a3b;color:#fff;font-weight:600}
+.tfr-sheet-bg{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.tfr-sheet{width:100%;max-width:560px;max-height:80dvh;overflow:auto;background:#fff;border-radius:18px 18px 0 0;padding:18px 14px 24px;animation:tfrup .2s ease-out}
+.tfr-sheet.tall{max-height:86dvh}
+.tfr-sheet h3{font-size:18px;margin:0 4px 12px;color:#14301d}
+@keyframes tfrup{from{transform:translateY(30px);opacity:.4}to{transform:none;opacity:1}}
+.tfr-surahs{display:flex;flex-direction:column}
+.tfr-surahs button{display:flex;align-items:center;gap:12px;padding:10px 6px;border-bottom:1px solid #eef2ec;text-align:start}
+.tfr-surahs button.on{background:#eef7ef;border-radius:10px}
+.tfr-surahs .n{width:32px;height:32px;border-radius:50%;background:#eef4e6;color:#1f6f3c;display:grid;place-items:center;font-size:13px;font-weight:700;flex:none}
+.tfr-surahs .e{flex:1;display:flex;flex-direction:column;font-size:15px}
+.tfr-surahs .e small{font-size:11.5px;color:#6b7280}
+.tfr-surahs .a{font-size:20px;color:#1f6f3c}
+@media (min-width:900px){
+  .tfr-head{padding:12px 24px}
+  .tfr-sheet-bg{align-items:center}
+  .tfr-sheet{border-radius:18px}
+  .tfs-book{flex-basis:230px}
+}
