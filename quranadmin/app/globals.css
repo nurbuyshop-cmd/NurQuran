@@ -340,3 +340,8 @@ input,select,textarea{font:inherit;color:inherit}
 .qa-adhan .act{display:flex;align-items:center;gap:6px}
 .qa-adhan .prem{display:flex;align-items:center;gap:6px;font-size:13px;color:#4b5563;cursor:pointer;user-select:none}
 .qa-adhan .prem input{width:16px;height:16px;accent-color:#b8860b}
+.qa-tafsir-lang{margin-top:14px}
+.qa-tafsir-lang h3{font-size:14px;margin:0 0 6px}
+.qa-adhan .prem.show input{accent-color:var(--g2)}
+.qa-adhan .prem input[type=radio]{accent-color:var(--g2)}
+.qa-adhan .nm b{align-self:flex-start}

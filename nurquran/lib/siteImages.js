@@ -7,7 +7,7 @@ import { API_URL } from "@/lib/quran/data";
 import { setSoundOverrides } from "@/lib/sounds";
 
 const CACHE = "nq_site";
-const EMPTY = { images: {}, reciters: null, tajweed: null, tajweedAudio: {}, tajweedLessons: null, adhan: null };
+const EMPTY = { images: {}, reciters: null, tajweed: null, tajweedAudio: {}, tajweedLessons: null, adhan: null, tafsir: null };
 let mem = null;
 let inflight = null;
 const subs = new Set();
@@ -28,7 +28,7 @@ function refresh() {
     .then((d) => {
       if (!d || !d.ok) return;
       mem = { images: d.images || {}, reciters: d.reciters || null, tajweed: d.tajweed || null, tajweedAudio: d.tajweedAudio || {},
-        tajweedLessons: d.tajweedLessons || null, adhan: d.adhan || null };
+        tajweedLessons: d.tajweedLessons || null, adhan: d.adhan || null, tafsir: d.tafsir || null };
       setSoundOverrides(mem.adhan && mem.adhan.audio);
       try { localStorage.setItem(CACHE, JSON.stringify(mem)); } catch (e) {}
       subs.forEach((f) => f(mem));

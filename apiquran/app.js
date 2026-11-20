@@ -229,7 +229,7 @@ app.get("/v1/site", (req, res) => {
   res.set("Cache-Control", "no-cache");
   ok(res, { updatedAt: d.updatedAt, images: d.items, reciters: getSettings().reciters || null,
     tajweed: publicTajweed(), tajweedAudio: getTajweedAudio().items, tajweedLessons: getTajweedLessons().lessons,
-    adhan: publicAdhan() });
+    adhan: publicAdhan(), tafsir: getSettings().tafsir || null });
 });
 app.get("/v1/images", (req, res) => {
   const d = getImages();
@@ -398,6 +398,24 @@ app.delete("/v1/admin/tajweed/lessons/:n", auth, (req, res) => {
   store.write("tajweedLessons", { lessons });
   log(req.admin, "reset Learn Tajweed lesson", n);
   ok(res, {});
+});
+
+/* ---------- Tafsir: which books visitors see, default language and default book per language ---------- */
+const TAFSIR_IDS = [164, 165, 166, 381, 160, 159, 157, 818, 169, 168, 817, 16, 14, 91, 15, 90, 94, 93, 170, 804];
+const TAFSIR_LANGS = ["bn", "ur", "en", "ar", "ru", "ku"];
+const getTafsirCfg = () => ({ hidden: [], defaultLang: "bn", defaults: {}, ...(getSettings().tafsir || {}) });
+app.get("/v1/admin/tafsir", auth, (req, res) => ok(res, { tafsir: getTafsirCfg() }));
+app.put("/v1/admin/tafsir", auth, (req, res) => {
+  const b = req.body || {};
+  const hidden = Array.isArray(b.hidden) ? [...new Set(b.hidden.map(Number).filter((x) => TAFSIR_IDS.includes(x)))] : getTafsirCfg().hidden;
+  const defaults = {};
+  Object.entries(b.defaults && typeof b.defaults === "object" ? b.defaults : {}).forEach(([l, id]) => {
+    if (TAFSIR_LANGS.includes(l) && TAFSIR_IDS.includes(+id) && !hidden.includes(+id)) defaults[l] = +id;
+  });
+  const t = { hidden, defaultLang: TAFSIR_LANGS.includes(b.defaultLang) ? b.defaultLang : "bn", defaults };
+  store.write("settings", { ...getSettings(), tafsir: t });
+  log(req.admin, "updated tafsir settings", `${TAFSIR_IDS.length - hidden.length} books shown, default ${t.defaultLang}`);
+  ok(res, { tafsir: t });
 });
 
 /* ---------- Prayer Times: adhan recordings and which adhans need Premium ---------- */

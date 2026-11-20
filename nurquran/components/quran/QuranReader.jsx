@@ -505,7 +505,7 @@ export default function QuranReader() {
 
   const ctx = {
     prefs, save, goTo, run, setScreen, indexTab, setIndexTab, showToast, addBookmark, setReading, ayahShare,
-    startAudioAt, setSel, sel, hifz, revealed, playingKey, index, layout, font, colorOk,
+    startAudioAt, setSel, sel, hifz, revealed, playingKey, index, layout, font, colorOk, router,
   };
 
   const mode = { font, layout, lines15, showTr: !!prefs.showTr, scale: sizeScale(prefs.size), desk: isDesk };
@@ -841,6 +841,9 @@ function AyahPopup({ ctx }) {
         <button title="Add bookmark" onClick={() => { addBookmark(sel.s, sel.a); setSel(null); }}>{Ico.addbookmark()}</button>
         <button title="Reading bookmark" onClick={() => { setReading(sel.s, sel.a); setSel(null); }}>{Ico.readingbookmark()}</button>
         <button title="Share" onClick={() => ayahShare(sel.s, sel.a)}>{Ico.share()}</button>
+        <button title="Tafsir" className="tfs" onClick={() => ctx.router.push(`/tafsir?s=${sel.s}&a=${sel.a}`)}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" strokeLinecap="round"><path d="M12 6C10 4.5 7 4 3.5 4.5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5v-13C17 4 14 4.5 12 6zm0 0v13" /></svg>
+        </button>
         <button title="Close" className="c" onClick={() => setSel(null)}><G.chevU /></button>
       </div>
       <div className="ref">{surah(sel.s).en} {sel.s}:{sel.a}</div>
