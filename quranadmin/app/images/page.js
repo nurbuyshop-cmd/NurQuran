@@ -6,17 +6,17 @@ import { api } from "@/lib/api";
 import { I, useUi } from "@/components/ui";
 import { IMAGE_GROUPS } from "@/lib/imageSlots";
 
-function Slot({ slot, label, url, round, onUpload, onRemove, busy }) {
+function Slot({ slot, label, url, round, ico, onUpload, onRemove, busy }) {
   return (
     <div className="qa-img">
-      <div className={`pv${round ? " round" : ""}${url ? "" : " empty"}`}>
+      <div className={`pv${round ? " round" : ""}${ico ? " brand" : ""}${url ? "" : " empty"}`}>
         {url ? <img src={url} alt={label} /> : <span>Default</span>}
       </div>
       <b>{label}</b>
       <div className="act">
         <label className={`qa-btn sm${busy ? " dis" : ""}`}>
           {busy ? "Uploading…" : url ? "Change" : "Upload"}
-          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden disabled={busy}
+          <input type="file" accept={`image/png,image/jpeg,image/webp,image/gif${ico ? ",.ico,image/x-icon" : ""}`} hidden disabled={busy}
             onChange={(e) => { const f = e.target.files[0]; e.target.value = ""; f && onUpload(slot, f); }} />
         </label>
         {url && <button className="qa-icon-btn red" title="Remove (use the default)" onClick={() => onRemove(slot, label)}><I.trash /></button>}
@@ -58,11 +58,11 @@ function ImagesBody() {
       {!imgs ? <div className="qa-skel" /> : IMAGE_GROUPS.map((g) => (
         <section key={g.kind} className="qa-card qa-imgs">
           <div className="qa-card-h"><h2>{g.title}</h2><span className="qa-tag">{g.items.filter(([id]) => imgs[`${g.kind}:${id}`]).length} / {g.items.length} uploaded</span></div>
-          <p className="qa-muted small">{g.hint} PNG, JPG, WEBP or GIF, up to 3 MB.</p>
+          <p className="qa-muted small">{g.hint} PNG, JPG, WEBP or GIF{g.ico ? " (ICO also for the favicon)" : ""}, up to 3 MB.</p>
           <div className="grid">
             {g.items.map(([id, label]) => {
               const slot = `${g.kind}:${id}`;
-              return <Slot key={slot} slot={slot} label={label} url={imgs[slot]} round={g.round} busy={busy === slot} onUpload={upload} onRemove={remove} />;
+              return <Slot key={slot} slot={slot} label={label} url={imgs[slot]} round={g.round} ico={g.ico} busy={busy === slot} onUpload={upload} onRemove={remove} />;
             })}
           </div>
         </section>

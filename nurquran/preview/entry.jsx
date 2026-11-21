@@ -12,8 +12,12 @@ import SettingsP from "@/app/settings/page";
 import TajweedP from "@/app/tajweed/page";
 import PremiumP from "@/app/premium/page";
 import AlarmRunner from "@/components/AlarmRunner";
+import AboutP from "@/app/about/page";
+import PrivacyP from "@/app/privacy-policy/page";
+import ContactP from "@/app/contact/page";
+import SiteFavicon from "@/components/SiteFavicon";
 
-const ROUTES = { "": Home, tasbeeh: TasbeehPage, "prayer-times": PrayerTimesPage, qibla: QiblaPage, quran: QuranPage, search: SearchP, notifications: NotifP, settings: SettingsP, tajweed: TajweedP, premium: PremiumP };
+const ROUTES = { "": Home, tasbeeh: TasbeehPage, "prayer-times": PrayerTimesPage, qibla: QiblaPage, quran: QuranPage, search: SearchP, notifications: NotifP, settings: SettingsP, tajweed: TajweedP, premium: PremiumP, about: AboutP, "privacy-policy": PrivacyP, contact: ContactP };
 
 function App() {
   const read = () => location.hash.replace(/^#/, "");
@@ -24,6 +28,6 @@ function App() {
     return () => window.removeEventListener("hashchange", on);
   }, []);
   const Page = ROUTES[route.split(/[/?]/)[0]] || Home;
-  return <><Page /><AlarmRunner /></>;
+  return <><Page /><AlarmRunner /><SiteFavicon /></>;
 }
 createRoot(document.getElementById("root")).render(<App />);

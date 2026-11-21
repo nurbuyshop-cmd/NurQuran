@@ -2,6 +2,11 @@
 // reciters → nurquran/lib/quran/reciters.js, home icons → nurquran/components/FeatureGrid.jsx, themes → SettingsScreen.jsx
 export const IMAGE_GROUPS = [
   {
+    kind: "brand", title: "Logo & favicon", hint: "Logo: shown at the top of the website (desktop home page and inner pages) — square PNG with a transparent background, about 200×200 px. Favicon: the small icon in the browser tab — square PNG or ICO, 64×64 or 512×512 px.",
+    round: false, ico: true,
+    items: [["logo", "Website logo"], ["favicon", "Favicon (tab icon)"]],
+  },
+  {
     kind: "reciter", title: "Reciter photos", hint: "Shown in the Reciter list on the home page and in the Quran settings. Square photo, about 300×300 px.",
     round: true,
     items: [

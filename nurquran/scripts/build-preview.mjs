@@ -1,6 +1,6 @@
 // Builds a single self-contained HTML file of the site for quick previews: preview/dist/index.html
 import { build } from "esbuild";
-import { writeFileSync, mkdirSync, cpSync } from "fs";
+import { writeFileSync, mkdirSync, cpSync, readFileSync } from "fs";
 import path from "path";
 
 const root = path.resolve(".");
@@ -19,6 +19,8 @@ const js = r.outputFiles.find((f) => f.path.endsWith(".js")).text;
 let css = r.outputFiles.filter((f) => f.path.endsWith(".css")).map((f) => f.text).join("\n");
 const imports = [...css.matchAll(/@import\s+url\([^)]*\);?/g)].map((m) => m[0]);
 css = css.replace(/@import\s+url\([^)]*\);?/g, "");
+// Bangla font inline, so the single-file preview shows Tiro Bangla too
+css = css.replace(/url\(['"]?\/fonts\/(tiro-bangla[^'")]+\.woff2)['"]?\)/g, (m, f) => `url(data:font/woff2;base64,${readFileSync(path.join("public/fonts", f)).toString("base64")})`);
 const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">

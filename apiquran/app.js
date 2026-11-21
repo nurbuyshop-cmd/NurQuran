@@ -222,14 +222,14 @@ app.post("/v1/admin/upload", auth, upload.single("file"), (req, res) => {
 });
 
 /* ---------- images (reciter photos, home icons, theme pictures) ---------- */
-const SLOT = /^(reciter|feature|theme|notif):[a-z0-9-]{1,40}$/;
+const SLOT = /^(reciter|feature|theme|notif|brand|general):[a-z0-9-]{1,40}$/;
 // everything the visitors' site needs from the admin panel in one small call
 app.get("/v1/site", (req, res) => {
   const d = getImages();
   res.set("Cache-Control", "no-cache");
-  ok(res, { updatedAt: d.updatedAt, images: d.items, reciters: getSettings().reciters || null,
+  ok(res, { updatedAt: d.updatedAt, siteName: getSettings().siteName, images: d.items, reciters: getSettings().reciters || null,
     tajweed: publicTajweed(), tajweedAudio: getTajweedAudio().items, tajweedLessons: getTajweedLessons().lessons,
-    adhan: publicAdhan(), tafsir: getSettings().tafsir || null });
+    adhan: publicAdhan(), tafsir: getSettings().tafsir || null, general: publicGeneral() });
 });
 app.get("/v1/images", (req, res) => {
   const d = getImages();
@@ -245,7 +245,9 @@ const imageUpload = multer({
     },
   }),
   limits: { fileSize: 3 * 1024 * 1024 },
-  fileFilter: (req, f, cb) => cb(null, /\.(png|jpe?g|webp|gif)$/i.test(f.originalname) && /^image\//.test(f.mimetype)),
+  fileFilter: (req, f, cb) => cb(null, /\.(png|jpe?g|webp|gif|ico)$/i.test(f.originalname) && /^image\//.test(f.mimetype)
+    // .ico only for the favicon / logo
+    && (!/\.(ico)$/i.test(f.originalname) || /^brand:/.test(String(req.query.slot || "")))),
 });
 const removeImageFile = (url) => {
   const m = /\/uploads\/images\/([A-Za-z0-9._-]+)$/.exec(url || "");
@@ -255,7 +257,7 @@ app.post("/v1/admin/images", auth, (req, res, next) => {
   if (!SLOT.test(String(req.query.slot || ""))) return fail(res, 400, "Unknown picture slot.");
   next();
 }, imageUpload.single("file"), (req, res) => {
-  if (!req.file) return fail(res, 400, "Choose a picture (png, jpg, webp or gif — max 3 MB).");
+  if (!req.file) return fail(res, 400, "Choose a picture (png, jpg, webp or gif — max 3 MB; ico for the favicon & favicon).");
   const slot = String(req.query.slot);
   const base = process.env.PUBLIC_URL || `${req.protocol}://${req.get("host")}`;
   const d = getImages();
@@ -275,6 +277,84 @@ app.delete("/v1/admin/images", auth, (req, res) => {
   store.write("images", { updatedAt: new Date().toISOString(), items });
   log(req.admin, "removed picture", slot);
   ok(res, {});
+});
+
+/* ---------- General section (mobile home page tiles) + Contact Us details ---------- */
+const GEN_TYPES = ["contact", "privacy", "about", "notifications", "share", "link"];
+const GEN_ICONS = ["email", "shield", "info", "bell", "share", "facebook", "youtube", "whatsapp", "telegram", "instagram", "website", "star", "phone", "link"];
+const CONTACT_FIELDS = ["intro", "email", "phone", "whatsapp", "address", "hours", "website", "facebook"];
+const GEN_DEFAULT = () => ({
+  items: [
+    { id: "contact", type: "contact", title: "Contact us", icon: "email", link: "", hidden: false },
+    { id: "privacy", type: "privacy", title: "Privacy Policy", icon: "shield", link: "", hidden: false },
+  ],
+  contact: { intro: "We'd love to hear from you. Reach us any time using the details below.", email: "", phone: "", whatsapp: "", address: "", hours: "", website: "", facebook: "" },
+});
+const getGeneral = () => store.read("general", GEN_DEFAULT);
+const publicGeneral = () => { const g = getGeneral(); return { items: g.items.filter((x) => !x.hidden), contact: g.contact }; };
+app.get("/v1/admin/general", auth, (req, res) => ok(res, { general: getGeneral() }));
+app.put("/v1/admin/general", auth, (req, res) => {
+  const b = req.body || {};
+  const cur = getGeneral();
+  if (!Array.isArray(b.items)) return fail(res, 400, "Missing items.");
+  const seen = new Set();
+  const items = [];
+  for (const x of b.items.slice(0, 30)) {
+    const id = String(x.id || "").toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 40);
+    if (!id || seen.has(id)) return fail(res, 400, "Each item needs its own id.");
+    seen.add(id);
+    const type = GEN_TYPES.includes(x.type) ? x.type : "link";
+    const title = String(x.title || "").trim().slice(0, 40);
+    if (!title) return fail(res, 400, "Every item needs a name.");
+    const link = String(x.link || "").trim().slice(0, 500);
+    if (type === "link" && !/^(https?:\/\/|mailto:|tel:|\/)/i.test(link)) return fail(res, 400, `"${title}": enter a link starting with https://, mailto:, tel: or /`);
+    items.push({ id, type, title, icon: GEN_ICONS.includes(x.icon) ? x.icon : "link", link: type === "link" ? link : "", hidden: !!x.hidden });
+  }
+  const c = b.contact || {};
+  const contact = {};
+  CONTACT_FIELDS.forEach((k) => (contact[k] = String(c[k] ?? cur.contact[k] ?? "").trim().slice(0, k === "intro" || k === "address" ? 600 : 200)));
+  if (contact.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contact.email)) return fail(res, 400, "Enter a valid email address.");
+  // pictures of removed items go too
+  const imgs = getImages();
+  let changed = false;
+  const nextImgs = { ...imgs.items };
+  cur.items.forEach((x) => { const s = `general:${x.id}`; if (!seen.has(x.id) && nextImgs[s]) { removeImageFile(nextImgs[s]); delete nextImgs[s]; changed = true; } });
+  if (changed) store.write("images", { updatedAt: new Date().toISOString(), items: nextImgs });
+  const g = { items, contact };
+  store.write("general", g);
+  log(req.admin, "updated General section", `${items.length} items`);
+  ok(res, { general: g });
+});
+
+/* ---------- site pages: About Us, Privacy Policy (edited in the admin panel, shown in the website footer) ---------- */
+const CONTENT_SLUGS = ["about", "privacy"];
+const CONTENT_DEFAULTS = JSON.parse(fs.readFileSync(path.join(__dirname, "src", "content-defaults.json"), "utf8"));
+const getContent = () => store.read("content", () => {
+  const now = new Date().toISOString();
+  const o = {};
+  CONTENT_SLUGS.forEach((k) => (o[k] = { ...CONTENT_DEFAULTS[k], updatedAt: now }));
+  return o;
+});
+app.get("/v1/content/:slug", (req, res) => {
+  const c = getContent()[req.params.slug];
+  if (!CONTENT_SLUGS.includes(req.params.slug) || !c) return fail(res, 404, "Page not found.");
+  res.set("Cache-Control", "no-cache");
+  ok(res, { page: { slug: req.params.slug, ...c } });
+});
+app.get("/v1/admin/content", auth, (req, res) => ok(res, { content: getContent() }));
+app.put("/v1/admin/content/:slug", auth, (req, res) => {
+  const slug = req.params.slug;
+  if (!CONTENT_SLUGS.includes(slug)) return fail(res, 404, "Page not found.");
+  const b = req.body || {};
+  const title = String(b.title || "").trim().slice(0, 120);
+  const body = String(b.body || "").replace(/\r\n/g, "\n").slice(0, 100000);
+  if (!title) return fail(res, 400, "Enter a page title.");
+  if (!body.trim()) return fail(res, 400, "The page text cannot be empty.");
+  store.backup("content");
+  const page = { title, body, updatedAt: new Date().toISOString() };
+  store.write("content", { ...getContent(), [slug]: page });
+  log(req.admin, "updated page", title);
+  ok(res, { page: { slug, ...page } });
 });
 
 /* ---------- Learn Tajweed: access (free / limited), premium plans, recordings, premium codes ---------- */
@@ -646,7 +726,7 @@ app.delete("/v1/admin/admins/:id", auth, ownerOnly, (req, res) => {
 /* ---------- admin: backup ---------- */
 app.get("/v1/admin/export", auth, (req, res) => {
   res.set("Content-Disposition", `attachment; filename="nurquran-backup-${new Date().toISOString().slice(0, 10)}.json"`);
-  res.json({ exportedAt: new Date().toISOString(), ...getPages(), settings: getSettings(), tajweedLessons: getTajweedLessons(), adhan: getAdhan() });
+  res.json({ exportedAt: new Date().toISOString(), ...getPages(), settings: getSettings(), tajweedLessons: getTajweedLessons(), adhan: getAdhan(), content: getContent(), general: getGeneral() });
 });
 app.post("/v1/admin/import", auth, ownerOnly, (req, res) => {
   const incoming = req.body && Array.isArray(req.body.pages) ? req.body.pages : null;
@@ -668,6 +748,17 @@ app.post("/v1/admin/import", auth, ownerOnly, (req, res) => {
   }
   if (req.body.adhan && Array.isArray(req.body.adhan.premium)) {
     store.write("adhan", { ...getAdhan(), premium: req.body.adhan.premium.map(String).filter((x) => ADHAN_IDS.includes(x)) });
+  }
+  if (req.body.general && Array.isArray(req.body.general.items) && req.body.general.contact) store.write("general", req.body.general);
+  const ct = req.body.content;
+  if (ct && typeof ct === "object") {
+    const cur = getContent();
+    CONTENT_SLUGS.forEach((k) => {
+      const x = ct[k];
+      if (x && String(x.title || "").trim() && String(x.body || "").trim())
+        cur[k] = { title: String(x.title).trim().slice(0, 120), body: String(x.body).slice(0, 100000), updatedAt: x.updatedAt || new Date().toISOString() };
+    });
+    store.write("content", { ...cur });
   }
   log(req.admin, "imported backup", `${clean.length} pages`);
   ok(res, { pages: clean.length });

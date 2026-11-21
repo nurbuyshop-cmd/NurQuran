@@ -3,6 +3,7 @@ import FeatureGrid from "@/components/FeatureGrid";
 import DesktopExtras from "@/components/DesktopExtras";
 import HomeQuranSettings from "@/components/HomeQuranSettings";
 import ContinueReading from "@/components/ContinueReading";
+import SiteFooter from "@/components/SiteFooter";
 
 export default function Home() {
   return (
@@ -14,6 +15,7 @@ export default function Home() {
         <ContinueReading className="m" />
         <HomeQuranSettings />
         <DesktopExtras />
+        <SiteFooter />
       </main>
     </>
   );

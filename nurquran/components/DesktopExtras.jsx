@@ -46,7 +46,6 @@ export default function DesktopExtras() {
           </Link>
         ))}
       </div>
-      <footer className="site-footer">© {new Date().getFullYear()} Quran · All rights reserved</footer>
     </div>
   );
 }
