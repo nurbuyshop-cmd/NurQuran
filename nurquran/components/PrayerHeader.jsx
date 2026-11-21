@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import SiteLogo from "./SiteLogo";
 import HeroScene from "./HeroScene";
 import { getPrayerState, fmtTime, fmtGreg, hijriDate } from "@/lib/prayerEngine";
 import { usePrayerSettings } from "@/lib/prayerStore";
@@ -72,12 +73,7 @@ export default function PrayerHeader() {
               <svg className="back" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 5l-7 7 7 7" />
               </svg>
-              <svg className="logo" viewBox="0 0 40 40">
-                <circle cx="20" cy="20" r="19" fill="#1f8a3b" />
-                <circle cx="18" cy="20" r="11" fill="#f3c74b" />
-                <circle cx="22" cy="17.5" r="9.5" fill="#1f8a3b" />
-                <path d="M28 12l1 2.6 2.7.2-2.1 1.7.7 2.6-2.3-1.5-2.3 1.5.7-2.6-2.1-1.7 2.7-.2z" fill="#f3c74b" />
-              </svg>
+              <SiteLogo className="logo" />
               Quran
             </Link>
 

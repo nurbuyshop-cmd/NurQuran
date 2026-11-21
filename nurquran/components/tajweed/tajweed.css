@@ -1,6 +1,6 @@
 /* Learn Tajweed — teal header with a curve, cream page, white cells (reference app style) */
 body:has(.tj){background:#fcf8f3}
-.tj{--teal:#2a9d96;--teal2:#7cc1b7;min-height:100dvh;background:#fcf8f3;color:#2a9d96;font-family:'Roboto',system-ui,sans-serif;padding-bottom:40px}
+.tj{--teal:#2a9d96;--teal2:#7cc1b7;min-height:100dvh;background:#fcf8f3;color:#2a9d96;font-family:'NQ Bangla','Roboto',system-ui,sans-serif;padding-bottom:40px}
 .tj-head{position:sticky;top:0;z-index:5;height:54px;display:flex;align-items:center;gap:8px;padding:0 10px 0 4px;background:linear-gradient(180deg,#8fc9bf,#7dbfb4);color:#fff}
 .tj-head .b{width:42px;height:42px;display:grid;place-items:center;color:#2a9d96}
 .tj-head .b svg{width:26px;height:26px}
@@ -31,7 +31,7 @@ body:has(.tj){background:#fcf8f3}
 .tj-cell{position:relative;min-height:calc(var(--tfs) * 2.9);display:flex;flex-direction:column;align-items:stretch;justify-content:center;background:#fff;
   border:1.5px solid #efe4d6;border-radius:4px;padding:6px 0 0;color:#1f8f88;transition:background .15s,color .15s}
 .tj-cell .w{font-family:var(--font-ar);font-size:var(--tfs);line-height:1.7;text-align:center;padding:0 4px}
-.tj-cell .sp{margin:4px 8px 6px;background:#efe3d1;color:#333;font-size:14px;line-height:1.5;padding:5px 6px;text-align:center;font-family:'Hind Siliguri',var(--font-ar),'Roboto',sans-serif;border-radius:2px}
+.tj-cell .sp{margin:4px 8px 6px;background:#efe3d1;color:#333;font-size:14px;line-height:1.5;padding:5px 6px;text-align:center;font-family:'NQ Bangla','Hind Siliguri',var(--font-ar),'Roboto',sans-serif;border-radius:2px}
 .tj-cell.on{background:linear-gradient(160deg,#2a9d96,#1f8580);color:#fff;border-color:#1f8580}
 .tj-cell.on .sp{background:rgba(255,255,255,.22);color:#fff}
 .tj-cell.off{color:#bfe0dc}
@@ -63,7 +63,7 @@ body:has(.tj){background:#fcf8f3}
 
 /* Premium page */
 body:has(.pm){background:#fff}
-.pm{min-height:100dvh;background:#fff;color:#222;font-family:'Roboto',system-ui,sans-serif;display:flex;flex-direction:column}
+.pm{min-height:100dvh;background:#fff;color:#222;font-family:'NQ Bangla','Roboto',system-ui,sans-serif;display:flex;flex-direction:column}
 .pm-top{position:relative;background:linear-gradient(180deg,#f6b03e,#f3a43a);color:#fff;text-align:center;padding:18px 18px 22px}
 .pm-top .b{position:absolute;left:6px;top:10px;width:40px;height:40px;display:grid;place-items:center;color:#fff}
 .pm-top .b svg{width:24px;height:24px}

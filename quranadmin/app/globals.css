@@ -345,3 +345,66 @@ input,select,textarea{font:inherit;color:inherit}
 .qa-adhan .prem.show input{accent-color:var(--g2)}
 .qa-adhan .prem input[type=radio]{accent-color:var(--g2)}
 .qa-adhan .nm b{align-self:flex-start}
+
+/* ---------- Site Pages (About Us / Privacy Policy) ---------- */
+.sp-intro{margin:0 0 12px}
+.sp-tabs{display:inline-flex;margin-bottom:14px}
+.sp-tabs button{padding:8px 18px;font-size:14px}
+.sp-card{max-width:900px}
+.sp-link{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f1f8f2;border:1.5px solid #d7ead9;border-radius:10px;padding:10px 12px;font-size:14px}
+.sp-link span{color:#4b5563}
+.sp-link a{color:#1f8a3b;font-weight:600;word-break:break-all;flex:1}
+.sp-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.sp-text{min-height:460px;resize:vertical;line-height:1.6;font-size:14.5px}
+.sp-preview{border:1.5px solid #dfe5dc;border-radius:10px;padding:20px 22px;background:#fff;min-height:460px;line-height:1.65;font-size:15px}
+.sp-preview h1{font-size:24px;color:#0f5132;margin:0 0 10px}
+.rich h2{font-size:17px;color:#1f8a3b;margin:20px 0 8px}
+.rich p{margin:0 0 12px}
+.rich ul{margin:0 0 12px;padding-left:22px}
+.rich li{margin-bottom:6px}
+.rich a{color:#1f8a3b;text-decoration:underline}
+.qa-img .pv.brand{background:repeating-conic-gradient(#eef1ee 0 25%,#fff 0 50%) 0 0/16px 16px}
+.qa-img .pv.brand img{object-fit:contain;padding:8px}
+
+/* ---------- Tajweed: record with your voice ---------- */
+.qa-rec .act{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap}
+.qa-rec .rec-btn{display:inline-flex;align-items:center;gap:5px;background:#fff;color:#c62828;border:1.5px solid #f2c3c3}
+.qa-rec .rec-btn:hover:not(:disabled){background:#fdecec}
+.qa-rec .rec-btn svg{width:15px;height:15px}
+.qa-rec .rec-btn:disabled{opacity:.45;cursor:not-allowed}
+.qa-rec.recording{border-color:#e53935;background:#fff5f5;box-shadow:0 0 0 3px rgba(229,57,53,.12)}
+.qa-rec .rec-state{display:inline-flex;align-items:center;gap:6px;color:#c62828;font-weight:600}
+.qa-rec .rec-state .dot{width:9px;height:9px;border-radius:50%;background:#e53935;animation:qaPulse 1s infinite}
+.qa-rec .rec-stop{display:inline-flex;align-items:center;gap:6px;background:#e53935}
+.qa-rec .rec-stop .sq{width:10px;height:10px;border-radius:2px;background:#fff}
+@keyframes qaPulse{50%{opacity:.25}}
+
+/* ---------- General & Contact ---------- */
+.gn{display:flex;flex-direction:column;gap:18px;max-width:1000px}
+.gn-strip{display:flex;gap:12px;overflow-x:auto;padding:12px;margin:12px 0;background:#f4f6f3;border-radius:12px}
+.gn-mini{flex:none;width:76px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.gn-mini small{font-size:12px;line-height:1.2}
+.tile{display:grid;place-items:center;background:#fff;border-radius:18px;box-shadow:0 1px 4px rgba(0,0,0,.18);overflow:hidden}
+.gn-mini .tile{width:64px;height:64px}
+.tile svg{width:60%;height:60%}
+.tile img{width:62%;height:62%;object-fit:contain}
+.gn-list{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.gn-item{display:grid;grid-template-columns:150px 1fr auto;gap:16px;align-items:start;padding:14px;border:1.5px solid #e6ebe3;border-radius:14px;background:#fbfcfa}
+.gn-item.off{opacity:.55}
+.gn-pv{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.gn-pv .tile{width:80px;height:80px}
+.gn-pv .qa-link{background:none;border:0;cursor:pointer;font-size:12.5px}
+.gn-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gn-fields label:nth-child(3){grid-column:1/-1}
+.gn-act{display:flex;flex-direction:column;gap:4px}
+.gn-act .qa-icon-btn:disabled{opacity:.3}
+.gn-act .qa-icon-btn.on{color:#1f8a3b}
+.gn-contact{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gn-contact .wide{grid-column:1/-1}
+.gn-contact textarea{resize:vertical}
+.gn-save{position:sticky;bottom:0;display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:12px 0;background:linear-gradient(transparent,var(--bg,#f4f6f2) 30%)}
+@media (max-width:760px){
+  .gn-item{grid-template-columns:1fr;}
+  .gn-act{flex-direction:row;justify-content:flex-end}
+  .gn-fields,.gn-contact{grid-template-columns:1fr}
+}

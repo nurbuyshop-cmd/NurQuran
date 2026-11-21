@@ -1,6 +1,7 @@
 // Demo backend used only by the live preview. Mirrors the real API's endpoints, stored in localStorage.
 import { validatePage } from "./validate";
 import { SURAHS } from "./meta";
+import CONTENT_DEFAULTS from "./contentDefaults.json";
 
 const KEY = "qa_mock_db";
 const FATIHA = [
@@ -116,6 +117,43 @@ export async function mockRequest(path, method, body, form, token) {
       if (!f) return err("Choose an audio file.");
       log(db, me.name, "uploaded audio", f.name); save(db);
       return { ok: true, url: URL.createObjectURL(f) };
+    }
+    case url === "/v1/admin/tajweed" && method === "GET":
+      return { ok: true, tajweed: db.tajweed || { mode: "limited", freeCount: 6, lessonAccess: {}, payInfo: "", plans: [{ id: "weekly", name: "Weekly", price: "BDT 290", note: "" }, { id: "yearly", name: "Yearly", price: "BDT 4,200", note: "Best value" }, { id: "lifetime", name: "Lifetime", price: "BDT 7,000", note: "Pay once, access forever" }] }, audio: db.tajAudio || {} };
+    case url === "/v1/admin/tajweed" && method === "PUT": db.tajweed = body; save(db); return { ok: true, tajweed: body };
+    case url === "/v1/admin/tajweed/lessons": return { ok: true, lessons: db.tajLessons || {} };
+    case url === "/v1/admin/premium/codes" && method === "GET": return { ok: true, codes: [] };
+    case url === "/v1/admin/tajweed/audio" && method === "POST": {
+      const f = form && form.get("file"); if (!f) return err("Choose an audio file.");
+      const item = new URLSearchParams(path.split("?")[1] || "").get("item");
+      const dataUrl = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f); });
+      db.tajAudio = { ...(db.tajAudio || {}), [item]: dataUrl }; log(db, me.name, "uploaded tajweed audio", item); save(db);
+      return { ok: true, item, url: dataUrl };
+    }
+    case url === "/v1/admin/tajweed/audio" && method === "DELETE": {
+      const item = new URLSearchParams(path.split("?")[1] || "").get("item");
+      const n = { ...(db.tajAudio || {}) }; delete n[item]; db.tajAudio = n; save(db); return { ok: true };
+    }
+    case url === "/v1/admin/general" && method === "GET":
+      return { ok: true, general: db.general || { items: [{ id: "contact", type: "contact", title: "Contact us", icon: "email", link: "", hidden: false }, { id: "privacy", type: "privacy", title: "Privacy Policy", icon: "shield", link: "", hidden: false }], contact: { intro: "We'd love to hear from you. Reach us any time using the details below.", email: "", phone: "", whatsapp: "", address: "", hours: "", website: "", facebook: "" } } };
+    case url === "/v1/admin/general" && method === "PUT": {
+      for (const x of body.items || []) {
+        if (!String(x.title || "").trim()) return err("Every item needs a name.");
+        if (x.type === "link" && !/^(https?:\/\/|mailto:|tel:|\/)/i.test(x.link || "")) return err(`"${x.title}": enter a link starting with https://, mailto:, tel: or /`);
+      }
+      db.general = body; log(db, me.name, "updated General section", ""); save(db); return { ok: true, general: body };
+    }
+    case url === "/v1/admin/content": {
+      if (!db.content) { db.content = { about: { ...CONTENT_DEFAULTS.about, updatedAt: nowIso }, privacy: { ...CONTENT_DEFAULTS.privacy, updatedAt: nowIso } }; save(db); }
+      return { ok: true, content: db.content };
+    }
+    case /^\/v1\/admin\/content\/(about|privacy)$/.test(url) && method === "PUT": {
+      const slug = url.split("/").pop();
+      if (!String(body.title || "").trim()) return err("Enter a page title.");
+      if (!String(body.body || "").trim()) return err("The page text cannot be empty.");
+      const page = { title: body.title.trim(), body: body.body, updatedAt: nowIso };
+      db.content = { ...(db.content || {}), [slug]: page }; log(db, me.name, "updated page", page.title); save(db);
+      return { ok: true, page: { slug, ...page } };
     }
     case url === "/v1/admin/settings" && method === "GET": return { ok: true, settings: db.settings };
     case url === "/v1/admin/settings" && method === "PUT": {

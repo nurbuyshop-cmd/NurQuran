@@ -7,7 +7,7 @@ import { API_URL } from "@/lib/quran/data";
 import { setSoundOverrides } from "@/lib/sounds";
 
 const CACHE = "nq_site";
-const EMPTY = { images: {}, reciters: null, tajweed: null, tajweedAudio: {}, tajweedLessons: null, adhan: null, tafsir: null };
+const EMPTY = { siteName: "", images: {}, reciters: null, tajweed: null, tajweedAudio: {}, tajweedLessons: null, adhan: null, tafsir: null, general: null };
 let mem = null;
 let inflight = null;
 const subs = new Set();
@@ -27,8 +27,8 @@ function refresh() {
     .then((r) => r.json())
     .then((d) => {
       if (!d || !d.ok) return;
-      mem = { images: d.images || {}, reciters: d.reciters || null, tajweed: d.tajweed || null, tajweedAudio: d.tajweedAudio || {},
-        tajweedLessons: d.tajweedLessons || null, adhan: d.adhan || null, tafsir: d.tafsir || null };
+      mem = { siteName: d.siteName || "", images: d.images || {}, reciters: d.reciters || null, tajweed: d.tajweed || null, tajweedAudio: d.tajweedAudio || {},
+        tajweedLessons: d.tajweedLessons || null, adhan: d.adhan || null, tafsir: d.tafsir || null, general: d.general || null };
       setSoundOverrides(mem.adhan && mem.adhan.audio);
       try { localStorage.setItem(CACHE, JSON.stringify(mem)); } catch (e) {}
       subs.forEach((f) => f(mem));

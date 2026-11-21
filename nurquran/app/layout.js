@@ -1,10 +1,12 @@
 import "./globals.css";
 import AlarmRunner from "@/components/AlarmRunner";
 import FontSync from "@/components/FontSync";
+import SiteFavicon from "@/components/SiteFavicon";
 
 export const metadata = {
   title: "Quran",
   description: "Read the Holy Quran, prayer times, Qibla, Tasbeeh, Hifz and more.",
+  icons: { icon: "/favicon.svg" },
 };
 
 export const viewport = {
@@ -20,6 +22,7 @@ export default function RootLayout({ children }) {
         {children}
         <AlarmRunner />
         <FontSync />
+        <SiteFavicon />
       </body>
     </html>
   );

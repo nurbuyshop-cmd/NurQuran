@@ -6,6 +6,7 @@ import { usePrefs } from "@/lib/quran/prefs";
 import { supportsColorFont } from "@/lib/quran/mushaf";
 import { SettingsCards } from "@/components/quran/SettingsScreen";
 import TafsirSection from "@/components/tafsir/TafsirSection";
+import GeneralSection from "@/components/GeneralSection";
 
 export default function HomeQuranSettings() {
   const [prefs, save] = usePrefs();
@@ -17,6 +18,7 @@ export default function HomeQuranSettings() {
       <h2 className="sec-title desk-only">Quran settings</h2>
       <SettingsCards prefs={prefs} save={save} colorOk={colorOk} />
       <div className="qset-body tfs-wrap"><TafsirSection prefs={prefs} save={save} /></div>
+      <div className="qset-body gen-wrap"><GeneralSection /></div>
     </div>
   );
 }

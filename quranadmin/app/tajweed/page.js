@@ -4,6 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Shell from "@/components/Shell";
 import { api } from "@/lib/api";
 import { I, useUi, timeAgo } from "@/components/ui";
+import { startRecording } from "@/lib/recorder";
+
+const Mic = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21" /></svg>;
+const MAX_SEC = 20;
 
 function Access({ t, setT, onSave, busy, lessons }) {
   const setPlan = (i, patch) => setT({ ...t, plans: t.plans.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
@@ -143,7 +147,38 @@ function Recordings({ audio, setAudio, data }) {
   const [n, setN] = useState(1);
   const [busy, setBusy] = useState("");
   const player = useRef(null);
+  const recRef = useRef(null);
+  const [rec, setRec] = useState(null); // { id, sec } while recording, { id, saving: true } while uploading
   const lesson = data && data.lessons.find((l) => l.n === n);
+  // stop the microphone when leaving the page or switching lesson
+  useEffect(() => () => { recRef.current && recRef.current.ctl.cancel(); recRef.current = null; }, [n]);
+  useEffect(() => {
+    if (!rec || rec.saving) return;
+    const t = setInterval(() => {
+      setRec((r) => (r && !r.saving ? { ...r, sec: r.sec + 1 } : r));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [rec && rec.id, rec && rec.saving]);
+  useEffect(() => { if (rec && !rec.saving && rec.sec >= MAX_SEC) stopRec(); });
+  const startRec = async (id) => {
+    if (recRef.current) return;
+    try {
+      const ctl = await startRecording();
+      recRef.current = { id, ctl };
+      setRec({ id, sec: 0 });
+    } catch (e) { notify(e.message, "err"); }
+  };
+  const stopRec = async () => {
+    const cur = recRef.current; if (!cur) return;
+    recRef.current = null;
+    setRec({ id: cur.id, saving: true });
+    try {
+      const file = await cur.ctl.stop();
+      await upload(cur.id, file);
+    } catch (e) { notify(e.message, "err"); }
+    setRec(null);
+  };
+  const cancelRec = () => { const cur = recRef.current; recRef.current = null; cur && cur.ctl.cancel(); setRec(null); };
   const listen = (url) => { const a = player.current; a.src = url; a.play().catch(() => notify("Could not play", "err")); };
   const upload = async (id, file) => {
     if (!file) return;
@@ -151,7 +186,7 @@ function Recordings({ audio, setAudio, data }) {
     try {
       const form = new FormData(); form.append("file", file);
       const r = await api(`/v1/admin/tajweed/audio?item=${id}`, { method: "POST", form });
-      setAudio((m) => ({ ...m, [id]: r.url })); notify("Recording uploaded");
+      setAudio((m) => ({ ...m, [id]: r.url })); notify("Recording uploaded — tap the play button to hear it");
     } catch (e) { notify(e.message, "err"); }
     setBusy("");
   };
@@ -167,22 +202,33 @@ function Recordings({ audio, setAudio, data }) {
           {data.lessons.map((l) => <option key={l.n} value={l.n}>{l.n}. {l.title} ({l.en})</option>)}
         </select>}
       </div>
-      <p className="qa-muted small">Tap Upload on any item (alif, ba, …) to add the sound visitors hear when they tap it — one short audio per item (mp3 / m4a, max 10 MB). Words taken from the Quran already have Quran.com's word-by-word recitation; an uploaded recording is used instead of it.</p>
+      <p className="qa-muted small">For any item (alif, ba, …) either tap <b>Record</b> and say it with your own voice — tap <b>Stop</b> when you finish and it is uploaded straight away — or tap Upload to choose an audio file (mp3 / m4a / wav, max 10 MB). Silence before and after your voice is cut off automatically. Words taken from the Quran already have Quran.com's word-by-word recitation; an uploaded recording is used instead of it.</p>
       {!data ? <div className="qa-skel" /> : !lesson ? <p className="qa-muted">Lessons file not found — rebuild the admin panel.</p> : (
         <div className="qa-recgrid">
           {lesson.items.map((x) => {
             const mine = audio[x.id];
             const built = x.audio ? data.audioBase + x.audio : null;
             return (
-              <div key={x.id} className={`qa-rec${mine ? " mine" : built ? " built" : " none"}`}>
+              <div key={x.id} className={`qa-rec${mine ? " mine" : built ? " built" : " none"}${rec && rec.id === x.id ? " recording" : ""}`}>
                 <b dir="rtl">{x.t}</b>
-                <small>{mine ? "Your recording" : built ? "Quran.com recitation" : "No recording yet"}</small>
+                {rec && rec.id === x.id ? (
+                  rec.saving ? <small className="rec-state">Saving…</small>
+                  : <small className="rec-state"><i className="dot" />Recording 0:{String(rec.sec).padStart(2, "0")}</small>
+                ) : <small>{mine ? "Your recording" : built ? "Quran.com recitation" : "No recording yet"}</small>}
+                {rec && rec.id === x.id && !rec.saving ? (
+                  <div className="act">
+                    <button className="qa-btn sm rec-stop" onClick={stopRec}><i className="sq" />Stop</button>
+                    <button className="qa-icon-btn" title="Cancel" onClick={cancelRec}><I.x /></button>
+                  </div>
+                ) : (
                 <div className="act">
+                  <button className="qa-btn sm rec-btn" title="Record with your voice" disabled={!!rec || busy === x.id} onClick={() => startRec(x.id)}><Mic />Record</button>
                   {(mine || built) && <button className="qa-icon-btn" title="Listen" onClick={() => listen(mine || built)}><I.music /></button>}
-                  <label className={`qa-btn sm${busy === x.id ? " dis" : ""}`}>{busy === x.id ? "…" : mine ? "Change" : "Upload"}
+                  <label className={`qa-btn sm ghost${busy === x.id || rec ? " dis" : ""}`}>{busy === x.id ? "…" : mine ? "Change" : "Upload"}
                     <input type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav,.aac,.webm" hidden onChange={(e) => { upload(x.id, e.target.files[0]); e.target.value = ""; }} /></label>
                   {mine && <button className="qa-icon-btn red" title="Remove" onClick={() => remove(x.id)}><I.trash /></button>}
                 </div>
+                )}
               </div>
             );
           })}
@@ -280,7 +326,7 @@ function TajweedBody() {
   const [edits, setEdits] = useState({});
   useEffect(() => { api("/v1/admin/tajweed").then((r) => { setT(r.tajweed); setAudio(r.audio || {}); }).catch((e) => notify(e.message, "err")); }, [notify]);
   useEffect(() => {
-    fetch("/tajweed/lessons.json").then((r) => r.json()).then(setBase).catch(() => setBase({ lessons: [] }));
+    (window.__TAJ_LESSONS__ ? Promise.resolve(window.__TAJ_LESSONS__) : fetch("/tajweed/lessons.json").then((r) => r.json())).then(setBase).catch(() => setBase({ lessons: [] }));
     api("/v1/admin/tajweed/lessons").then((r) => setEdits(r.lessons || {})).catch(() => {});
   }, []);
   const data = base ? { ...base, base: base.lessons, lessons: mergeLessons(base.lessons, edits) } : null;

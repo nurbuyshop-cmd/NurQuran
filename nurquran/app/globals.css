@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Amiri:wght@400;700&family=Amiri+Quran&family=Hind+Siliguri:wght@400;500&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap');
 
 /* Arabic font for the whole site: put the font files in public/fonts/ */
+/* Tiro Bangla — used for every Bangla letter on the site (only Bangla characters, so English/Arabic keep their own fonts) */
+@font-face{font-family:'NQ Bangla';src:url('/fonts/tiro-bangla-bengali-400-normal.woff2') format('woff2'),url('/fonts/tiro-bangla-bengali-400-normal.woff') format('woff');font-weight:400;font-display:swap;unicode-range:U+0951-0952,U+0964-0965,U+0980-09FE,U+200C-200D,U+25CC}
 @font-face{font-family:'Al Majeed Quranic';src:url('/fonts/AlMajeedQuranic.woff2') format('woff2'),url('/fonts/AlMajeedQuranic.ttf') format('truetype');font-display:swap}
 
   :root{
@@ -14,7 +16,7 @@
     --font-ar:'Al Majeed Quranic','Amiri',serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{background:var(--bg);font-family:'Roboto',system-ui,sans-serif;color:var(--ink)}
+  html,body{background:var(--bg);font-family:'NQ Bangla','Roboto',system-ui,sans-serif;color:var(--ink)}
   a{color:inherit;text-decoration:none}
   button{font:inherit;cursor:pointer;background:none;border:0;color:inherit}
   .ar,[dir=rtl],[lang=ar]{font-family:var(--font-ar)}
@@ -68,6 +70,7 @@
     .brand{font-size:24px;font-weight:700;gap:10px}
     .brand .back{display:none}
     .brand .logo{display:block!important;width:34px;height:34px}
+    .brand img.logo{object-fit:contain}
     .nav-links{display:flex;gap:28px;font-size:15px;opacity:.92}
     .nav-links a{padding:6px 0;border-bottom:2px solid transparent;transition:.2s}
     .nav-links a:hover,.nav-links a.active{border-color:#f3c74b;opacity:1}
@@ -147,7 +150,7 @@
 .dnav{background:#0d1b3e;color:#fff}
 .dnav-in{max-width:1240px;margin:0 auto;padding:0 32px;height:68px;display:flex;align-items:center;gap:36px}
 .dnav-brand{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:700}
-.dnav-brand svg{width:32px;height:32px}
+.dnav-brand svg,.dnav-brand img{width:32px;height:32px}
 .dnav nav{flex:1;display:flex;gap:26px;font-size:15px}
 .dnav nav a{opacity:.8;padding:6px 0;border-bottom:2px solid transparent;transition:.2s}
 .dnav nav a:hover{opacity:1}
@@ -183,3 +186,23 @@
 @media (min-width:900px){ .continue.m{display:none} }
 .ico-btn{display:grid;place-items:center;position:relative}
 .ico-btn.bell .badge{position:absolute;top:-3px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:#e53935;color:#fff;font-size:10px;font-style:normal;font-weight:700;line-height:16px;text-align:center;box-shadow:0 0 0 1.5px #0d1b3e}
+
+/* ---------- footer: About Us · Privacy Policy (mobile + desktop) ---------- */
+footer.site-footer{text-align:center;color:var(--muted,#6b7280);font-size:13px;padding:26px 16px 30px}
+.sf-links{display:flex;justify-content:center;align-items:center;gap:10px;margin-bottom:6px;font-size:14px}
+.sf-links a{color:#1f8a3b;font-weight:500}
+.sf-links a:hover{text-decoration:underline}
+.site-logo-img{object-fit:contain}
+
+/* ---------- General tiles (mobile home page, bottom) ---------- */
+.home-qset .gen-wrap{margin-top:14px}
+.gen-card h3{margin-bottom:18px!important}
+.gen-row{display:flex;gap:16px;overflow-x:auto;padding:4px 4px 8px;margin:0 -4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.gen-row::-webkit-scrollbar{display:none}
+.gen-item{flex:0 0 auto;width:96px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;color:#111;background:none;border:0;padding:0;font:inherit;cursor:pointer}
+.gen-tile{width:88px;height:88px;border-radius:22px;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.2);display:grid;place-items:center;overflow:hidden;transition:transform .15s}
+.gen-item:active .gen-tile{transform:scale(.94)}
+.gen-tile svg{width:52px;height:52px}
+.gen-tile img{width:62%;height:62%;object-fit:contain}
+.gen-lbl{font-size:15px;line-height:1.25}
+@media (min-width:900px){ .home-qset .gen-wrap,.mob-only{display:none!important} }
