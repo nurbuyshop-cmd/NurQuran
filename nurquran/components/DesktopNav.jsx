@@ -7,6 +7,7 @@ const LINKS = [
   ["Prayer Times", "/prayer-times"],
   ["Qibla", "/qibla"],
   ["Tasbeeh", "/tasbeeh"],
+  ["99 Names", "/allah-names"],
   ["Hifz", "#"],
   ["Duas", "#"],
 ];

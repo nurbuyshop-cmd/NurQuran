@@ -17,7 +17,7 @@ export const PREF_DEFAULTS = {
   theme: "green", appearance: "light",
   tafsirLang: null, tafsirBook: null, // null = the default chosen in the admin panel (Bangla first)
   // Advanced Settings
-  newToolbar: true, textEffects: false, arabicIndex: false, pageIndex: true, audioSmoother: true, echo: false, autoBackup: false,
+  newToolbar: true, textEffects: false, arabicIndex: false, pageIndex: true, audioSmoother: true, levelVolume: true, echo: false, autoBackup: false,
 };
 
 export function loadPrefs() {

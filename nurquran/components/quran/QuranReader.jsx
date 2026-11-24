@@ -10,6 +10,7 @@ import {
 } from "@/lib/quran/mushaf";
 import { Ico, ACTION_LABEL, SHORT_LABEL, DEFAULT_ORDER, G } from "./QIcons";
 import SettingsScreen from "./SettingsScreen";
+import { knownGain, measureGain } from "@/lib/quran/loudness";
 import { usePrefs, sizeScale } from "@/lib/quran/prefs";
 import { RECITERS, reciter as reciterInfo, ayahAudioUrl, effectiveReciter } from "@/lib/quran/reciters";
 import { useSiteConfig } from "@/lib/siteImages";
@@ -264,8 +265,11 @@ export default function QuranReader() {
     }
     scrollToAyah(s, a, true);
   };
-  // Echo: route the recitation through Web Audio (dry + a short reverb). Built the first time Echo is used.
+  // Web Audio chain for the recitation: source → level (Equal Volume gain) → dry + echo → limiter → speakers.
+  // Built the first time it is needed (Equal Volume is on by default), inside the tap that starts playing.
   const fx = useRef(null);
+  const curSrc = useRef(null); // the file playing now
+  const wantFx = () => !!(prefsRef.current && (prefsRef.current.echo || prefsRef.current.levelVolume !== false));
   const ensureFx = () => {
     if (fx.current || typeof window === "undefined") return fx.current;
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -273,26 +277,46 @@ export default function QuranReader() {
     try {
       const ctx = new AC();
       const src = ctx.createMediaElementSource(audioEl.current);
-      const dry = ctx.createGain(), wet = ctx.createGain(), conv = ctx.createConvolver();
+      const level = ctx.createGain(), dry = ctx.createGain(), wet = ctx.createGain(), conv = ctx.createConvolver();
+      const lim = ctx.createDynamicsCompressor(); // limiter: a boosted quiet file never clips
+      lim.threshold.value = -2; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.2;
       const len = Math.floor(ctx.sampleRate * 2.2), ir = ctx.createBuffer(2, len, ctx.sampleRate);
       for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
       conv.buffer = ir;
-      src.connect(dry).connect(ctx.destination);
-      src.connect(conv).connect(wet).connect(ctx.destination);
-      dry.gain.value = 1; wet.gain.value = 0;
-      fx.current = { ctx, wet };
+      src.connect(level);
+      level.connect(dry).connect(lim);
+      level.connect(conv).connect(wet).connect(lim);
+      lim.connect(ctx.destination);
+      dry.gain.value = 1; wet.gain.value = 0; level.gain.value = 1;
+      // the phone may pause the audio engine (another app, a call): start it again when we play
+      const wake = () => { if (ctx.state !== "running" && audioEl.current && !audioEl.current.paused) ctx.resume().catch(() => {}); };
+      ctx.onstatechange = wake;
+      document.addEventListener("visibilitychange", wake);
+      fx.current = { ctx, wet, level };
     } catch (e) { fx.current = null; }
     return fx.current;
   };
   const applyEcho = () => {
     const on = !!prefsRef.current?.echo;
-    if (!on && !fx.current) return;
+    if (!wantFx() && !fx.current) return;
     const f = ensureFx();
     if (!f) return;
-    if (f.ctx.state === "suspended") f.ctx.resume().catch(() => {});
+    if (f.ctx.state !== "running") f.ctx.resume().catch(() => {});
     f.wet.gain.value = on ? 0.38 : 0;
   };
   useEffect(() => { if (audio.on) applyEcho(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [prefs?.echo]);
+  // Equal Volume: the gain measured for this file (1 when it is off or not measured yet)
+  const setLevel = (g, glide) => {
+    const f = fx.current;
+    if (!f) return;
+    const v = prefsRef.current && prefsRef.current.levelVolume === false ? 1 : (g || 1);
+    const p = f.level.gain;
+    try {
+      p.cancelScheduledValues(f.ctx.currentTime);
+      if (glide) p.setTargetAtTime(v, f.ctx.currentTime, 0.08); else p.setValueAtTime(v, f.ctx.currentTime);
+    } catch (e) { p.value = v; }
+  };
+  useEffect(() => { if (audio.on && fx.current) setLevel(knownGain(curSrc.current), true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [prefs?.levelVolume]);
   // Audio Smoother: each ayah fades in, and fades out just before it ends
   const fadeRaf = useRef(0);
   const fadeIn = () => {
@@ -308,6 +332,14 @@ export default function QuranReader() {
     const el = audioEl.current;
     el.crossOrigin = "anonymous";
     applyEcho();
+    // Equal Volume: the gain is usually known already (the next ayah is measured while this one plays);
+    // the first time it is measured now and glides in, so playback starts at once (inside the tap)
+    curSrc.current = src;
+    if (fx.current) {
+      const g = knownGain(src);
+      setLevel(g);
+      if (g == null) measureGain(src).then((m) => { if (m != null && curSrc.current === src) setLevel(m, true); });
+    }
     el.src = src;
     fadeIn();
     el.playbackRate = prefsRef.current.speed;
@@ -339,6 +371,7 @@ export default function QuranReader() {
     if (nsrc) {
       if (!preloadEl.current) { preloadEl.current = new Audio(); preloadEl.current.preload = "auto"; preloadEl.current.crossOrigin = "anonymous"; }
       preloadEl.current.src = nsrc;
+      if (fx.current) measureGain(nsrc);
     }
     if ("mediaSession" in navigator) {
       try {
@@ -409,20 +442,46 @@ export default function QuranReader() {
   };
 
   /* ---------- autoscroll ---------- */
+  // Smooth: the exact (fractional) position is kept in `pos`. The page is scrolled to the whole pixel
+  // and the rest (< 1 px) is shown by moving the text with a GPU transform, so it glides instead of
+  // jumping a pixel every few frames. Touching the page pauses it; it then continues from where the
+  // reader left it. The running time is kept in a ref (no re-render of the pages every second).
+  const pagesRef = useRef(null);
+  const autoSecs = useRef(0);
+  useEffect(() => { if (auto.on) autoSecs.current = 0; }, [auto.on]);
   useEffect(() => {
     if (!auto.on || !auto.playing || !prefs) return;
-    let raf, last = performance.now(), acc = 0, secAcc = 0;
+    const box = pagesRef.current;
     const page = document.querySelector(`section[data-page="${view.page}"]`);
     const pageH = page ? page.offsetHeight : 900;
     const pxPerSec = (20 * pageH) / (prefs.scrollMin * 60); // ~20 pages per para
+    let raf, last = performance.now(), pos = window.scrollY, setY = window.scrollY, hold = false, shift = 0;
+    const move = (frac) => {
+      if (!box || Math.abs(frac - shift) < 0.01) return;
+      shift = frac;
+      box.style.transform = frac ? `translate3d(0,${(-frac).toFixed(2)}px,0)` : "";
+    };
+    const down = () => { hold = true; move(0); };
+    const up = () => { hold = false; pos = setY = window.scrollY; last = performance.now(); };
+    window.addEventListener("touchstart", down, { passive: true });
+    window.addEventListener("touchend", up, { passive: true });
+    window.addEventListener("touchcancel", up, { passive: true });
+    if (box) box.style.willChange = "transform";
     const step = (now) => {
-      const dt = (now - last) / 1000;
+      const dt = Math.min(0.1, (now - last) / 1000); // after a pause / background tab: no jump
       last = now;
-      acc += pxPerSec * dt;
-      if (acc >= 1) { const n = Math.floor(acc); acc -= n; window.scrollBy(0, n); }
-      secAcc += dt;
-      if (secAcc >= 1) { secAcc -= 1; setAuto((a) => ({ ...a, secs: a.secs + 1 })); }
+      if (!hold) {
+        const y = window.scrollY;
+        if (Math.abs(y - setY) > 1.5) { pos = setY = y; move(0); } // moved by hand, or pages above changed height
+        pos += pxPerSec * dt;
+        const whole = Math.floor(pos);
+        if (whole > setY) { window.scrollTo(0, whole); setY = window.scrollY; }
+        const frac = pos - setY;
+        move(frac > 0 && frac < 2 ? frac : 0);
+        autoSecs.current += dt;
+      }
       if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+        move(0);
         setAuto((a) => ({ ...a, playing: false }));
         showToast("Reached the end of the Quran");
         return;
@@ -430,7 +489,13 @@ export default function QuranReader() {
       raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("touchstart", down);
+      window.removeEventListener("touchend", up);
+      window.removeEventListener("touchcancel", up);
+      if (box) { box.style.transform = ""; box.style.willChange = ""; }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auto.on, auto.playing, prefs?.scrollMin]);
 
@@ -511,7 +576,7 @@ export default function QuranReader() {
 
   const mode = { font, layout, lines15, showTr: !!prefs.showTr, scale: sizeScale(prefs.size), desk: isDesk };
   const pagesEl = (
-    <div className={`qr-pages f-${font}${lines15 ? " m15" : ""}${prefs.pageLines ? " ruled" : ""}${prefs.textEffects ? " fx" : ""}`} style={{ "--fs": mode.scale }} onClick={onPageClick}>
+    <div className={`qr-pages f-${font}${lines15 ? " m15" : ""}${prefs.pageLines ? " ruled" : ""}${prefs.textEffects ? " fx" : ""}`} style={{ "--fs": mode.scale }} onClick={onPageClick} ref={pagesRef}>
       {index ? PAGE_NUMS.map((p) => (
         <PageView key={`${layout}-${p}`} p={p} mode={mode} bism={index.bism}
           hl={[selKey, playingKey, flash].filter(Boolean).join(",")} hifz={hifz} revealed={hifz ? revealed : null} />
@@ -561,7 +626,7 @@ export default function QuranReader() {
       {sel && <AyahPopup ctx={ctx} />}
 
       {auto.on && <AutoBar prefs={prefs} save={save} auto={auto} setAuto={setAuto} onOptions={() => setDialog("autoopts")} />}
-      {auto.on && prefs.showProgress && <div className="qr-progress">Progress: {hms(auto.secs)}</div>}
+      {auto.on && prefs.showProgress && <AutoProgress secs={autoSecs} />}
 
       {audio.on && (
         <AudioBar reciter={reciterId === "admin" ? "Uploaded recordings" : reciterInfo(reciterId).name} onSettings={() => setScreen("settings")}
@@ -737,7 +802,8 @@ const PageView = memo(function PageView({ p, mode, bism, hl, hifz, revealed }) {
       <div className="qr-pno">{p}</div>
     </section>
   );
-});
+}, (a, b) => a.p === b.p && a.bism === b.bism && a.hl === b.hl && a.hifz === b.hifz && a.revealed === b.revealed
+  && Object.keys(a.mode).every((k) => a.mode[k] === b.mode[k]));
 
 // 15-line page: pick one font size so the widest line fits the page width, then justify each line
 function FitLines({ children, p, fam, font }) {
@@ -900,6 +966,13 @@ function AyahPopup({ ctx }) {
       )}
     </div>
   );
+}
+
+// running time of the autoscroll; ticks by itself so the pages are not re-rendered every second
+function AutoProgress({ secs }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t); }, []);
+  return <div className="qr-progress">Progress: {hms(secs.current)}</div>;
 }
 
 function AutoBar({ prefs, save, auto, setAuto, onOptions }) {
