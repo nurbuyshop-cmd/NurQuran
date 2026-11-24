@@ -73,7 +73,9 @@ body:has(.qr-root[data-theme=night]){background:#0f1311}
 @media (max-width:420px){.qr-surah .qs-fl{width:1.2em}.qr-surah .qs-mid{padding:0 .75em}}
 .qr-bism{text-align:center;min-height:var(--lh);line-height:var(--lh);color:var(--ink)}
 .qr-lines{line-height:var(--lh);text-align:justify;text-align-last:center;margin:0;word-spacing:.06em}
-.qr-pages.ruled .qr-lines{background-image:linear-gradient(to bottom,transparent calc(var(--lh) - 1px),var(--rule) calc(var(--lh) - 1px));background-size:100% var(--lh)}
+/* one rule under every text line. The rule spacing is the line's real height (1lh): Android scales the
+   line height with the phone's font-size setting, so a fixed px spacing drifted off the text lines. */
+.qr-pages.ruled .qr-lines{background-image:linear-gradient(to bottom,transparent calc(100% - 1px),var(--rule) calc(100% - 1px));background-size:100% var(--lh);background-size:100% 1lh}
 .qr-pages.ruled .qr-bism{border-bottom:1px solid var(--rule)}
 .qr-lines.center{text-align:center}
 .qa,.qw{cursor:pointer}

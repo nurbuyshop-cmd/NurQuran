@@ -108,6 +108,7 @@ export default function AdvancedSettings() {
 
         <h2>Audio</h2>
         <Row title="Audio Smoother" sub="Works with Recitation and Translation" on={prefs.audioSmoother !== false} onChange={set("audioSmoother")} />
+        <Row title="Equal Volume" sub="Every ayah and reciter plays at the same loudness" on={prefs.levelVolume !== false} onChange={set("levelVolume")} />
         <Row title="Echo" on={!!prefs.echo} onChange={set("echo")} />
 
         <h2>User Settings Backup</h2>
@@ -161,6 +162,7 @@ export default function AdvancedSettings() {
               <dt>Arabic Sura/Juz Index</dt><dd>Surah and Juz names in Arabic in the top bar and in the index.</dd>
               <dt>Page Index</dt><dd>The page number in the middle of the top bar.</dd>
               <dt>Audio Smoother</dt><dd>Each ayah fades in and out gently, so the jump to the next ayah is smooth.</dd>
+              <dt>Equal Volume</dt><dd>Some recordings are quieter than others. Each ayah is measured once and played at the same loudness, so you do not have to change the phone volume between ayahs or reciters.</dd>
               <dt>Echo</dt><dd>Adds a light masjid-like echo to the recitation.</dd>
               <dt>User Settings Backup</dt><dd>Auto keeps a copy of your settings in this browser. Backup saves them to a file; Restore loads that file (or the automatic copy) — useful on a new phone.</dd>
             </dl>

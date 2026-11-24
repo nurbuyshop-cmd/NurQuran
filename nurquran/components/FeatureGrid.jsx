@@ -17,7 +17,7 @@ const FEATURES = [
   { key: "inflight", label: "Inflight Prayer Times", href: "#", Icon: InflightIcon },
   { key: "hifz", label: "Hifz", href: "#", Icon: HifzIcon },
   { key: "hijri", label: "Hijri", href: "#", Icon: HijriIcon },
-  { key: "allah-names", label: "Allah Name", href: "#", Icon: AllahNamesIcon },
+  { key: "allah-names", label: "Allah Name", href: "/allah-names", Icon: AllahNamesIcon },
 ];
 
 // The icon pictures can be replaced from the admin panel (Images → Home page icons)
